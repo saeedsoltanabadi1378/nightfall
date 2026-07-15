@@ -8,17 +8,76 @@ public sealed class GameState
     private readonly HashSet<Guid> _investigatedTargets = new();
     private int? _lastDoctorSelfHealNight;
 
-    public GameConfig Config { get; }
+    public Guid GameId { get; private init; }
+    public DateTimeOffset CreatedAt { get; private init; }
+    public GameConfig Config { get; private init; } = GameConfig.Default;
     public GamePhase CurrentPhase { get; private set; } = GamePhase.Lobby;
     public int NightNumber { get; private set; }
     public IReadOnlyList<Player> Players => _players;
 
-    public GameState(GameConfig? config = null)
+    public GameState(GameConfig? config = null, Guid? gameId = null)
     {
         Config = config ?? GameConfig.Default;
+        GameId = gameId ?? Guid.NewGuid();
+        CreatedAt = DateTimeOffset.UtcNow;
     }
 
     public Player? GetPlayer(Guid id) => _players.FirstOrDefault(p => p.Id == id);
+
+    /// <summary>Captures full-fidelity state, including in-flight submissions not exposed by the public API, for persistence (see GameStateSnapshot).</summary>
+    public GameStateSnapshot ToSnapshot() => new(
+        GameId,
+        CreatedAt,
+        CurrentPhase,
+        NightNumber,
+        Config,
+        _players.Select(p => new PlayerSnapshot(p.Id, p.TelegramUsername, p.Role, p.IsAlive, p.GodfatherRank)).ToList(),
+        _nightActions.Values.Select(a => new NightActionSnapshot(a.ActorId, a.TargetId, a.ActionType)).ToList(),
+        new Dictionary<Guid, Guid?>(_votes),
+        _investigatedTargets.ToList(),
+        _lastDoctorSelfHealNight);
+
+    /// <summary>Reconstructs a GameState (including in-flight submissions) from a snapshot, bypassing normal transition guards.</summary>
+    public static GameState FromSnapshot(GameStateSnapshot snapshot)
+    {
+        var game = new GameState(snapshot.Config, snapshot.GameId)
+        {
+            CreatedAt = snapshot.CreatedAt,
+            CurrentPhase = snapshot.CurrentPhase,
+            NightNumber = snapshot.NightNumber
+        };
+
+        foreach (var ps in snapshot.Players)
+        {
+            var player = new Player(ps.Id, ps.TelegramUsername);
+            if (ps.Role.HasValue)
+                player.AssignRole(ps.Role.Value);
+            if (ps.GodfatherRank.HasValue)
+                player.SetGodfatherRank(ps.GodfatherRank);
+            if (!ps.IsAlive)
+                player.Eliminate();
+            game._players.Add(player);
+        }
+
+        foreach (var action in snapshot.PendingNightActions)
+        {
+            game._nightActions[action.ActorId] = new NightAction(action.ActorId, action.TargetId, action.ActionType);
+        }
+
+        foreach (var (voterId, targetId) in snapshot.PendingVotes)
+        {
+            game._votes[voterId] = targetId;
+        }
+
+        foreach (var targetId in snapshot.InvestigatedTargets)
+        {
+            game._investigatedTargets.Add(targetId);
+        }
+
+        game._lastDoctorSelfHealNight = snapshot.LastDoctorSelfHealNight;
+
+        return game;
+    }
 
     public void AddPlayer(Player player)
     {
