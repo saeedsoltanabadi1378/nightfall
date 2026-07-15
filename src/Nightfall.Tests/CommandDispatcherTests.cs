@@ -163,6 +163,8 @@ public class CommandDispatcherTests
 
         var dm = messenger.Sent.Single(m => m.ChatId == 10);
         Assert.Equal($"https://t.me/NightfallBot/app?startapp={api.CreatedGameId}", dm.MiniAppUrl);
+        var groupAnnouncement = messenger.Sent.Single(m => m.ChatId == ChatId);
+        Assert.Equal($"https://t.me/NightfallBot/app?startapp={api.CreatedGameId}", groupAnnouncement.Url);
     }
 
     [Fact]

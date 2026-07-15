@@ -24,4 +24,13 @@ public sealed class TelegramBotMessenger : IBotMessenger
 
         await _client.SendMessage(chatId, text, replyMarkup: markup);
     }
+
+    public async Task SendWithUrlButtonAsync(long chatId, string text, string? url)
+    {
+        InlineKeyboardMarkup? markup = url is null
+            ? null
+            : new InlineKeyboardMarkup(InlineKeyboardButton.WithUrl("Open Nightfall", url));
+
+        await _client.SendMessage(chatId, text, replyMarkup: markup);
+    }
 }

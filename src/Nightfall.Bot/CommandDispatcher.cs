@@ -113,9 +113,10 @@ public sealed class CommandDispatcher
             return;
         }
 
-        await _api.CreateGameAsync(chatId, actor);
-        await _messenger.SendTextAsync(chatId,
-            $"🌙 New Nightfall game created by {DisplayName(actor)}! Others can /join. Once everyone's in, /startgame.");
+        var gameId = await _api.CreateGameAsync(chatId, actor);
+        await _messenger.SendWithUrlButtonAsync(chatId,
+            $"🌙 New Nightfall game created by {DisplayName(actor)}! Open the lobby to join, or use /join. Once everyone's in, /startgame.",
+            BuildMiniAppUrl(gameId));
     }
 
     private async Task HandleJoinAsync(long chatId, TelegramIdentity actor)
@@ -135,7 +136,9 @@ public sealed class CommandDispatcher
             return;
 
         await _api.StartGameAsync(gameId.Value, actor);
-        await _messenger.SendTextAsync(chatId, "🎭 Roles have been assigned! Check your DMs for your role.");
+        await _messenger.SendWithUrlButtonAsync(chatId,
+            "🎭 Roles have been assigned! Open Nightfall to play, and check your DMs for your role.",
+            BuildMiniAppUrl(gameId.Value));
 
         await RevealRolesAsync(chatId, gameId.Value);
     }
@@ -144,7 +147,7 @@ public sealed class CommandDispatcher
     {
         var roster = await _rosterStore.GetAsync(gameId);
         var couldNotReach = new List<string>();
-        string? miniAppUrl = _botOptions.MiniAppBaseUrl is { Length: > 0 } baseUrl ? $"{baseUrl}?startapp={gameId}" : null;
+        string? miniAppUrl = BuildMiniAppUrl(gameId);
 
         foreach (var entry in roster)
         {
@@ -273,9 +276,7 @@ public sealed class CommandDispatcher
         var view = await _api.GetGameAsync(gameId.Value, actor);
         try
         {
-            string? miniAppUrl = _botOptions.MiniAppBaseUrl is { Length: > 0 } baseUrl
-                ? $"{baseUrl}?startapp={gameId.Value}"
-                : null;
+            string? miniAppUrl = BuildMiniAppUrl(gameId.Value);
             await _messenger.SendWithMiniAppButtonAsync(actor.Id, FormatRoleReveal(view), miniAppUrl);
         }
         catch (Exception ex)
@@ -307,12 +308,11 @@ public sealed class CommandDispatcher
 
         await _api.StartGameAsync(gameId.Value, actor);
         var playerView = await _api.GetGameAsync(gameId.Value, actor);
-        string? miniAppUrl = _botOptions.MiniAppBaseUrl is { Length: > 0 } baseUrl
-            ? $"{baseUrl}?startapp={gameId.Value}"
-            : null;
+        string? miniAppUrl = BuildMiniAppUrl(gameId.Value);
 
-        await _messenger.SendTextAsync(chatId,
-            "Solo test started with automated players. Use /solonext to advance one phase at a time.");
+        await _messenger.SendWithUrlButtonAsync(chatId,
+            "Solo test started with automated players. Open Nightfall to play; use /solonext to advance one phase at a time.",
+            miniAppUrl);
         await _messenger.SendWithMiniAppButtonAsync(actor.Id, FormatRoleReveal(playerView), miniAppUrl);
     }
 
@@ -439,6 +439,11 @@ public sealed class CommandDispatcher
 
     private static TelegramIdentity SoloIdentityFromRoster(GameRosterEntry entry) =>
         new(entry.TelegramUserId, entry.Username, null, entry.Username, null);
+
+    private string? BuildMiniAppUrl(Guid gameId) =>
+        _botOptions.MiniAppBaseUrl is { Length: > 0 } baseUrl
+            ? $"{baseUrl}?startapp={gameId}"
+            : null;
 
     private Task HandleHelpAsync(long chatId) => _messenger.SendTextAsync(chatId,
         "Nightfall commands:\n" +

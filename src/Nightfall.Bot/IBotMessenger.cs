@@ -10,4 +10,7 @@ public interface IBotMessenger
 
     /// <summary>Sends text with an optional "Open Nightfall" WebApp button (omitted if miniAppUrl is null).</summary>
     Task SendWithMiniAppButtonAsync(long chatId, string text, string? miniAppUrl);
+
+    /// <summary>Sends a normal URL button. Unlike a WebApp button, Telegram permits this in group chats.</summary>
+    Task SendWithUrlButtonAsync(long chatId, string text, string? url);
 }
