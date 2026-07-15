@@ -4,8 +4,11 @@ import './index.css'
 import App from './App.tsx'
 import AdminApp from './admin/AdminApp.tsx'
 
+const isAdmin = window.location.pathname.startsWith('/admin')
+document.documentElement.classList.toggle('admin-page', isAdmin)
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    {window.location.pathname.startsWith('/admin') ? <AdminApp /> : <App />}
+    {isAdmin ? <AdminApp /> : <App />}
   </StrictMode>,
 )

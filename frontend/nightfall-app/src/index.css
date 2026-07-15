@@ -49,6 +49,12 @@ body {
   flex-direction: column;
 }
 
+.admin-page #root {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+
 h1 {
   font-size: 24px;
   margin: 0 0 4px;
