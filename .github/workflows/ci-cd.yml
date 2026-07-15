@@ -1,0 +1,13 @@
+# TODO: Phase 9 — build/test/deploy pipeline for Nightfall.
+name: ci-cd
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "CI/CD pipeline not implemented yet — see Phase 9"

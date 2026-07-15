@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Nightfall.Api/Nightfall.Api.csproj" />
+    <Project Path="src/Nightfall.Bot/Nightfall.Bot.csproj" />
+    <Project Path="src/Nightfall.Domain/Nightfall.Domain.csproj" />
+    <Project Path="src/Nightfall.Infrastructure/Nightfall.Infrastructure.csproj" />
+    <Project Path="src/Nightfall.Tests/Nightfall.Tests.csproj" />
+  </Folder>
+</Solution>

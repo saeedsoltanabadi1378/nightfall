@@ -1,0 +1,5 @@
+# TODO: Phase 9 — compose services for Nightfall.Api, Nightfall.Bot, Postgres, Redis, and the frontend.
+# Placeholder only; not yet functional.
+
+version: "3.9"
+services: {}

@@ -1,0 +1,8 @@
+# TODO: Phase 9 — tune per final Dockerfiles.
+
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+.git/
+.env
