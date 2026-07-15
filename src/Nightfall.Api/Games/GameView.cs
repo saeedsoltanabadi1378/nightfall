@@ -18,7 +18,8 @@ public sealed record GameView(
     EliminationView? LastVotingElimination,
     WinCondition WinCondition,
     bool YouAreController,
-    bool RequiredNightActionsComplete)
+    bool RequiredNightActionsComplete,
+    IReadOnlyList<VoteView> Votes)
 {
     public static GameView For(GameState game, Guid viewerId)
     {
@@ -48,6 +49,10 @@ public sealed record GameView(
             ? null
             : new EliminationView(game.LastVotingResult.Eliminated, WasSaved: false, game.LastVotingResult.WasTie, game.LastVotingResult.TiedPlayers);
 
+        var votes = game.CurrentPhase == GamePhase.Voting
+            ? game.ToSnapshot().PendingVotes.Select(vote => new VoteView(vote.Key, vote.Value)).ToList()
+            : [];
+
         return new GameView(
             game.GameId,
             game.CurrentPhase,
@@ -61,7 +66,8 @@ public sealed record GameView(
             votingElimination,
             game.CheckWinCondition(),
             game.Players.FirstOrDefault()?.Id == viewerId,
-            game.AreRequiredNightActionsComplete());
+            game.AreRequiredNightActionsComplete(),
+            votes);
     }
 }
 
@@ -70,3 +76,5 @@ public sealed record PlayerView(Guid PlayerId, string TelegramUsername, bool IsA
 public sealed record DetectiveResultView(Guid TargetPlayerId, bool IsMafiaAligned);
 
 public sealed record EliminationView(Guid? EliminatedPlayerId, bool WasSaved, bool WasTie = false, IReadOnlyList<Guid>? TiedPlayers = null);
+
+public sealed record VoteView(Guid VoterPlayerId, Guid? TargetPlayerId);

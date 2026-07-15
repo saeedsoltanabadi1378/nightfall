@@ -52,6 +52,12 @@ export interface GameView {
   winCondition: WinCondition;
   youAreController: boolean;
   requiredNightActionsComplete: boolean;
+  votes: VoteView[];
+}
+
+export interface VoteView {
+  voterPlayerId: string;
+  targetPlayerId: string | null;
 }
 
 export interface NightResult {

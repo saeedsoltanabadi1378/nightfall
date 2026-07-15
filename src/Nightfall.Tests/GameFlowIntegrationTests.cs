@@ -74,6 +74,14 @@ public class GameFlowIntegrationTests : IClassFixture<NightfallApiFactory>, IAsy
         // day/vote before role actions become available on Night 1.
         (await creator.Client.PostAsync($"/api/games/{gameId}/resolve-night", null)).EnsureSuccessStatusCode();
         (await creator.Client.PostAsync($"/api/games/{gameId}/start-voting", null)).EnsureSuccessStatusCode();
+        (await players[0].Client.PostAsJsonAsync($"/api/games/{gameId}/votes", new SubmitVoteRequest(views[1].YourPlayerId))).EnsureSuccessStatusCode();
+        (await players[1].Client.PostAsJsonAsync($"/api/games/{gameId}/votes", new SubmitVoteRequest(views[0].YourPlayerId))).EnsureSuccessStatusCode();
+
+        var votingView = await players[2].Client.GetFromJsonAsync<GameView>($"/api/games/{gameId}");
+        Assert.Equal(2, votingView!.Votes.Count);
+        Assert.Contains(votingView.Votes, vote => vote.VoterPlayerId == views[0].YourPlayerId && vote.TargetPlayerId == views[1].YourPlayerId);
+        Assert.Contains(votingView.Votes, vote => vote.VoterPlayerId == views[1].YourPlayerId && vote.TargetPlayerId == views[0].YourPlayerId);
+
         (await creator.Client.PostAsync($"/api/games/{gameId}/resolve-voting", null)).EnsureSuccessStatusCode();
         (await creator.Client.PostAsync($"/api/games/{gameId}/start-night", null)).EnsureSuccessStatusCode();
 

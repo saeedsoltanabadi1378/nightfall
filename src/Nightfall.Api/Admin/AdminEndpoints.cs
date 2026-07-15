@@ -24,7 +24,7 @@ public static class AdminEndpoints
         auth.MapPost("/login", async (LoginRequest request, HttpContext http, IOptions<AdminOptions> options) =>
         {
             var configured = options.Value;
-            if (string.IsNullOrWhiteSpace(configured.Username) || !string.Equals(request.Username, configured.Username, StringComparison.Ordinal) || !AdminPassword.Verify(request.Password, configured.PasswordHash)) return Results.Unauthorized();
+            if (string.IsNullOrWhiteSpace(configured.Username) || string.IsNullOrEmpty(configured.Password) || !string.Equals(request.Username, configured.Username, StringComparison.Ordinal) || !string.Equals(request.Password, configured.Password, StringComparison.Ordinal)) return Results.Unauthorized();
             var identity = new ClaimsIdentity([new Claim(ClaimTypes.Name, configured.Username), new Claim(ClaimTypes.Role, "Admin")], CookieAuthenticationDefaults.AuthenticationScheme);
             await http.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity), new AuthenticationProperties { IsPersistent = false, ExpiresUtc = DateTimeOffset.UtcNow.AddHours(8) });
             return Results.Ok(new { username = configured.Username });

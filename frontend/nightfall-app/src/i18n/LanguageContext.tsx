@@ -24,6 +24,7 @@ const translations = {
     doctorSaved: "The Doctor saved the target! Nobody died last night.", nobodyDied: "Nobody died last night.",
     discuss: "Discuss, then move to voting when ready.", startVoting: "Start voting", waitingVoting: "Waiting for the game creator to start voting.",
     voting: "Voting", deadCannotVote: "You are no longer able to vote. Watch quietly.", votePrompt: "Vote to eliminate someone, or abstain:",
+    voteProgress: "Votes cast: {count} of {total}", voteActivity: "Live voting", votedFor: "voted for", voteAbstained: "abstained", waitingForVotes: "No votes have been cast yet.",
     vote: "Vote", abstain: "Abstain", voteSubmitted: "Vote submitted. Waiting for the rest of the town…", tallyVotes: "Tally votes",
     results: "Results", voteTie: "The vote was tied. Nobody was eliminated.", votedOut: "The town voted out {name}.",
     noVotes: "No votes were cast. Nobody was eliminated.", nextNight: "Continue to next night", waitingContinue: "Waiting for the game creator to continue.",
@@ -37,6 +38,7 @@ const translations = {
     descGodfather: "Leader of the Mafia. Choose who dies each night."
   },
   fa: {
+    voteProgress: "آرای ثبت‌شده: {count} از {total}", voteActivity: "رأی‌گیری زنده", votedFor: "رأی داد به", voteAbstained: "رأی ممتنع داد", waitingForVotes: "هنوز رأیی ثبت نشده است.",
     language: "English",
     loading: "🌙 در حال بارگذاری نایت‌فال…",
     genericError: "مشکلی پیش آمد.",

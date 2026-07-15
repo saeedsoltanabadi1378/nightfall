@@ -43,7 +43,7 @@ services:
       Agora__AppCertificate: ${AGORA_APP_CERTIFICATE:?AGORA_APP_CERTIFICATE is required}
       Cors__AllowedOrigins__0: ${PUBLIC_FRONTEND_ORIGIN:-http://localhost:8080}
       Admin__Username: ${ADMIN_USERNAME:?ADMIN_USERNAME is required}
-      Admin__PasswordHash: ${ADMIN_PASSWORD_HASH:?ADMIN_PASSWORD_HASH is required}
+      Admin__Password: ${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}
     # No host port binding here on purpose — see docker-compose.override.yml for why local `docker
     # compose up` still gets one. Under Coolify (or any Traefik/reverse-proxy-managed host), the
     # proxy routes to this container over the internal Docker network by port alone; publishing a

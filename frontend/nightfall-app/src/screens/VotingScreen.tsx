@@ -13,6 +13,9 @@ export function VotingScreen() {
   if (!view) return null;
 
   const candidates = view.players.filter((p) => p.isAlive);
+  const visibleVotes = view.votes ?? [];
+  const hasVoted = submitted || visibleVotes.some((vote) => vote.voterPlayerId === view.yourPlayerId);
+  const playerName = (playerId: string) => view.players.find((player) => player.playerId === playerId)?.telegramUsername ?? t("unknown");
 
   async function handleVote(targetPlayerId: string | null) {
     await submitVote(targetPlayerId);
@@ -26,7 +29,18 @@ export function VotingScreen() {
 
       {!view.youAreAlive && <p className="screen__subtitle">{t("deadCannotVote")}</p>}
 
-      {view.youAreAlive && !submitted && (
+      <section className="vote-activity">
+        <div className="vote-activity__header">
+          <strong>{t("voteActivity")}</strong>
+          <span>{t("voteProgress", { count: visibleVotes.length, total: candidates.length })}</span>
+        </div>
+        <div className="vote-activity__bar"><span style={{ width: `${candidates.length ? (visibleVotes.length / candidates.length) * 100 : 0}%` }} /></div>
+        {visibleVotes.length === 0 ? <p>{t("waitingForVotes")}</p> : (
+          <ul>{visibleVotes.map((vote) => <li key={vote.voterPlayerId}><b>{playerName(vote.voterPlayerId)}</b> {vote.targetPlayerId ? <>{t("votedFor")} <b>{playerName(vote.targetPlayerId)}</b></> : t("voteAbstained")}</li>)}</ul>
+        )}
+      </section>
+
+      {view.youAreAlive && !hasVoted && (
         <>
           <p className="screen__subtitle">{t("votePrompt")}</p>
           <PlayerList players={candidates} yourPlayerId={view.yourPlayerId} selectable selectedPlayerId={selected} onSelect={setSelected} />
@@ -40,7 +54,7 @@ export function VotingScreen() {
         </>
       )}
 
-      {view.youAreAlive && submitted && <div className="banner banner--info">{t("voteSubmitted")}</div>}
+      {view.youAreAlive && hasVoted && <div className="banner banner--info">{t("voteSubmitted")}</div>}
 
       {view.youAreController && (
         <>
