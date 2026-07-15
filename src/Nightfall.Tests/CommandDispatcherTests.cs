@@ -4,6 +4,7 @@ using Nightfall.Bot;
 using Nightfall.Domain;
 using Nightfall.Infrastructure.Auth;
 using Nightfall.Infrastructure.Sessions;
+using Nightfall.Infrastructure.Admin;
 using Telegram.Bot.Types;
 
 namespace Nightfall.Tests;
@@ -13,7 +14,7 @@ public class CommandDispatcherTests
     private const long ChatId = 1001;
 
     private static (CommandDispatcher Dispatcher, FakeBotMessenger Messenger, FakeNightfallApiClient Api, IChatGameIndex ChatIndex, IGameRosterStore Roster)
-        CreateDispatcher(BotOptions? options = null)
+        CreateDispatcher(BotOptions? options = null, IBotSettingsService? settings = null)
     {
         var cache = new InMemoryKeyValueCache();
         var chatIndex = new ChatGameIndex(cache);
@@ -24,7 +25,7 @@ public class CommandDispatcherTests
         var dispatcher = new CommandDispatcher(
             api, messenger, chatIndex, roster,
             Options.Create(options ?? new BotOptions { NightfallApiBaseUrl = "http://localhost" }),
-            NullLogger<CommandDispatcher>.Instance);
+            NullLogger<CommandDispatcher>.Instance, settings);
 
         return (dispatcher, messenger, api, chatIndex, roster);
     }
@@ -95,6 +96,20 @@ public class CommandDispatcherTests
     }
 
     [Fact]
+    public async Task SoloTest_EnvironmentOverride_IsNotMaskedByDisabledDatabaseSetting()
+    {
+        var options = new BotOptions { NightfallApiBaseUrl = "http://localhost", SoloTestEnabled = true };
+        var settings = new FixedBotSettingsService(new BotSettingsSnapshot(
+            1, 5, 12, false, "", new HashSet<string>(BotSettingsDefaults.Commands), false, "", "", "", DateTime.UtcNow));
+        var (dispatcher, messenger, _, _, _) = CreateDispatcher(options, settings);
+
+        await dispatcher.HandleMessageAsync(TextMessage(ChatId, 1, "alice", "/solotest"));
+
+        Assert.DoesNotContain(messenger.Sent, message => message.Text.Contains("disabled", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(messenger.Sent, message => message.Text.Contains("No active game", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public async Task SoloTest_WithTwoRealPlayers_AddsThreeSyntheticPlayersAndStarts()
     {
         var options = new BotOptions
@@ -146,6 +161,11 @@ public class CommandDispatcherTests
         Assert.Contains("Villager", dmToVillager.Text);
         // Group announcement that roles were assigned.
         Assert.Contains(messenger.Sent, m => m.ChatId == ChatId && m.Text.Contains("Roles have been assigned"));
+    }
+
+    private sealed class FixedBotSettingsService(BotSettingsSnapshot snapshot) : IBotSettingsService
+    {
+        public Task<BotSettingsSnapshot> GetAsync(CancellationToken ct = default) => Task.FromResult(snapshot);
     }
 
     [Fact]

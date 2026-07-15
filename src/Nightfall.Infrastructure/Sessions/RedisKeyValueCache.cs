@@ -22,4 +22,11 @@ public sealed class RedisKeyValueCache : IKeyValueCache
 
     public Task DeleteAsync(string key) =>
         _redis.GetDatabase().KeyDeleteAsync(key);
+
+    public async Task<IReadOnlyList<string>> GetKeysAsync(string pattern)
+    {
+        var endpoint = _redis.GetEndPoints().FirstOrDefault();
+        if (endpoint is null) return [];
+        return await _redis.GetServer(endpoint).KeysAsync(pattern: pattern).Select(k => k.ToString()).ToListAsync();
+    }
 }

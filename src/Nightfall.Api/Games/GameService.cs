@@ -16,13 +16,14 @@ public sealed class GameService
     private readonly IGameRosterStore _rosterStore;
     private readonly IBotSettingsService _settings;
     private readonly NightfallDbContext _db;
+    private readonly GameMutationLock _mutationLock;
 
     public GameService(
         IGameSessionStore sessionStore,
         IGameHistoryRepository historyRepository,
         IGameNotifier notifier,
         IChatGameIndex chatGameIndex,
-        IGameRosterStore rosterStore, IBotSettingsService settings, NightfallDbContext db)
+        IGameRosterStore rosterStore, IBotSettingsService settings, NightfallDbContext db, GameMutationLock mutationLock)
     {
         _sessionStore = sessionStore;
         _historyRepository = historyRepository;
@@ -31,6 +32,7 @@ public sealed class GameService
         _rosterStore = rosterStore;
         _settings = settings;
         _db = db;
+        _mutationLock = mutationLock;
     }
 
     public async Task<Guid> CreateGameAsync(long telegramChatId, long creatorTelegramUserId, string creatorUsername)
@@ -88,6 +90,7 @@ public sealed class GameService
 
     public async Task<NightResult> ResolveNightAsync(Guid gameId, long telegramUserId)
     {
+        using var held = await _mutationLock.EnterAsync(gameId);
         var game = await LoadOrThrowAsync(gameId);
         EnsureController(game, telegramUserId);
         if (game.CurrentPhase == GamePhase.Night && !game.AreRequiredNightActionsComplete())
@@ -116,9 +119,50 @@ public sealed class GameService
 
     public async Task StartVotingAsync(Guid gameId, long telegramUserId)
     {
+        using var held = await _mutationLock.EnterAsync(gameId);
         var game = await LoadOrThrowAsync(gameId);
         EnsureController(game, telegramUserId);
         game.StartVoting();
+        await SaveAndNotifyAsync(game);
+    }
+
+    public async Task RequestChallengeAsync(Guid gameId, long telegramUserId)
+    {
+        using var held = await _mutationLock.EnterAsync(gameId);
+        var game = await LoadOrThrowAsync(gameId);
+        game.RequestChallenge(PlayerIdentity.DeriveId(gameId, telegramUserId), DateTimeOffset.UtcNow);
+        await SaveAndNotifyAsync(game);
+    }
+
+    public async Task CancelChallengeAsync(Guid gameId, long telegramUserId)
+    {
+        using var held = await _mutationLock.EnterAsync(gameId);
+        var game = await LoadOrThrowAsync(gameId);
+        game.CancelChallenge(PlayerIdentity.DeriveId(gameId, telegramUserId), DateTimeOffset.UtcNow);
+        await SaveAndNotifyAsync(game);
+    }
+
+    public async Task AcceptChallengeAsync(Guid gameId, long telegramUserId, Guid challengerId)
+    {
+        using var held = await _mutationLock.EnterAsync(gameId);
+        var game = await LoadOrThrowAsync(gameId);
+        game.AcceptChallenge(PlayerIdentity.DeriveId(gameId, telegramUserId), challengerId, DateTimeOffset.UtcNow);
+        await SaveAndNotifyAsync(game);
+    }
+
+    public async Task RejectChallengeAsync(Guid gameId, long telegramUserId, Guid challengerId)
+    {
+        using var held = await _mutationLock.EnterAsync(gameId);
+        var game = await LoadOrThrowAsync(gameId);
+        game.RejectChallenge(PlayerIdentity.DeriveId(gameId, telegramUserId), challengerId, DateTimeOffset.UtcNow);
+        await SaveAndNotifyAsync(game);
+    }
+
+    public async Task FinishDiscussionAsync(Guid gameId, long telegramUserId)
+    {
+        using var held = await _mutationLock.EnterAsync(gameId);
+        var game = await LoadOrThrowAsync(gameId);
+        game.FinishDiscussionSegment(PlayerIdentity.DeriveId(gameId, telegramUserId), DateTimeOffset.UtcNow);
         await SaveAndNotifyAsync(game);
     }
 

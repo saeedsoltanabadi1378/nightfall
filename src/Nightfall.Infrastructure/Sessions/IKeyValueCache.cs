@@ -10,4 +10,5 @@ public interface IKeyValueCache
     Task<string?> GetStringAsync(string key);
     Task SetStringAsync(string key, string value, TimeSpan? ttl = null);
     Task DeleteAsync(string key);
+    Task<IReadOnlyList<string>> GetKeysAsync(string pattern);
 }

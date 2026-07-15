@@ -28,6 +28,8 @@ builder.Services.AddSingleton<TelegramInitDataValidator>();
 builder.Services.AddOptions<AdminOptions>().Bind(builder.Configuration.GetSection(AdminOptions.SectionName));
 
 builder.Services.AddScoped<GameService>();
+builder.Services.AddSingleton<GameMutationLock>();
+builder.Services.AddHostedService<DiscussionDeadlineService>();
 builder.Services.AddSingleton<IGameNotifier, SignalRGameNotifier>();
 builder.Services.AddSignalR();
 

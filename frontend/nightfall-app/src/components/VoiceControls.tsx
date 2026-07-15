@@ -18,6 +18,7 @@ export function VoiceControls() {
   const switchVersionRef = useRef(0);
   const voiceGameId = view?.gameId;
   const voicePhase = view?.phase;
+  const activeDiscussionPlayer = view?.discussion?.activePlayerId;
 
   useEffect(() => {
     const session = sessionRef.current;
@@ -66,7 +67,7 @@ export function VoiceControls() {
     if (!voiceGameId) return;
     const target: VoiceChannel = canJoinMafiaChannel ? "mafia" : "main";
     void join(target);
-  }, [voiceGameId, voicePhase, canJoinMafiaChannel, join]);
+  }, [voiceGameId, voicePhase, activeDiscussionPlayer, canJoinMafiaChannel, join]);
 
   if (!view) return null;
 

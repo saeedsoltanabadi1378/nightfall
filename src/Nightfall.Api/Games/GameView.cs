@@ -19,7 +19,8 @@ public sealed record GameView(
     WinCondition WinCondition,
     bool YouAreController,
     bool RequiredNightActionsComplete,
-    IReadOnlyList<VoteView> Votes)
+    IReadOnlyList<VoteView> Votes,
+    DiscussionView? Discussion)
 {
     public static GameView For(GameState game, Guid viewerId)
     {
@@ -67,7 +68,8 @@ public sealed record GameView(
             game.CheckWinCondition(),
             game.Players.FirstOrDefault()?.Id == viewerId,
             game.AreRequiredNightActionsComplete(),
-            votes);
+            votes,
+            DiscussionView.For(game, viewerId));
     }
 }
 
@@ -78,3 +80,27 @@ public sealed record DetectiveResultView(Guid TargetPlayerId, bool IsMafiaAligne
 public sealed record EliminationView(Guid? EliminatedPlayerId, bool WasSaved, bool WasTie = false, IReadOnlyList<Guid>? TiedPlayers = null);
 
 public sealed record VoteView(Guid VoterPlayerId, Guid? TargetPlayerId);
+
+public sealed record DiscussionView(
+    DiscussionSegmentType SegmentType,
+    Guid ActivePlayerId,
+    Guid OriginalSpeakerId,
+    DateTimeOffset Deadline,
+    IReadOnlyList<Guid> PendingChallengerIds,
+    bool YourChallengeIsPending,
+    bool YouCanRequestChallenge,
+    bool YouCanFinish)
+{
+    public static DiscussionView? For(GameState game, Guid viewerId)
+    {
+        if (game.Discussion is not { } discussion) return null;
+        bool isSpeaker = discussion.SegmentType == DiscussionSegmentType.Speaker && discussion.ActivePlayerId == viewerId;
+        bool pending = discussion.PendingChallengeRequests.Contains(viewerId);
+        var viewer = game.GetPlayer(viewerId);
+        return new DiscussionView(
+            discussion.SegmentType, discussion.ActivePlayerId, discussion.OriginalSpeakerId, discussion.Deadline,
+            isSpeaker ? discussion.PendingChallengeRequests.ToList() : [], pending,
+            discussion.SegmentType == DiscussionSegmentType.Speaker && viewer?.IsAlive == true && viewerId != discussion.ActivePlayerId && !pending,
+            viewerId == discussion.ActivePlayerId);
+    }
+}

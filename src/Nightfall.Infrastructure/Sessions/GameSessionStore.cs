@@ -34,4 +34,7 @@ public sealed class GameSessionStore : IGameSessionStore
     }
 
     public Task RemoveAsync(Guid gameId) => _cache.DeleteAsync(KeyFor(gameId));
+
+    public async Task<IReadOnlyList<Guid>> ListActiveIdsAsync() =>
+        (await _cache.GetKeysAsync("nightfall:game:*")).Select(k => k.Split(':').Last()).Where(x => Guid.TryParse(x, out _)).Select(Guid.Parse).ToList();
 }

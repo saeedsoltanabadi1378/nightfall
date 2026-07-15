@@ -435,11 +435,13 @@ public sealed class CommandDispatcher
 
     private async Task<bool> EnsureSoloTestEnabledAsync(long chatId)
     {
-        if (_currentSettings?.SoloTestEnabled ?? _botOptions.SoloTestEnabled)
+        // The deployment flag is an explicit operational override. Database-backed dashboard
+        // settings must not mask it merely because a settings row (whose default is false) exists.
+        if (_botOptions.SoloTestEnabled || _currentSettings?.SoloTestEnabled == true)
             return true;
 
         await _messenger.SendTextAsync(chatId,
-            "Solo test mode is disabled. Set SOLO_TEST_ENABLED=true and redeploy to use it.");
+            "Solo test mode is disabled. Enable it in Admin Settings or set SOLO_TEST_ENABLED=true and redeploy.");
         return false;
     }
 

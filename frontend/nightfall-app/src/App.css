@@ -202,3 +202,11 @@
   font-size: 13px;
   flex: 1;
 }
+
+.discussion-card { display: grid; gap: 10px; padding: 18px; text-align: center; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+.discussion-card__kind { color: var(--accent); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+.discussion-card strong { color: var(--text-h); font-size: 22px; }
+.discussion-card time { color: var(--text-h); font-size: 42px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.challenge-list { display: grid; gap: 8px; padding-top: 8px; border-top: 1px solid var(--border); text-align: start; }
+.challenge-list > div { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; align-items: center; }
+.challenge-list button { border: 1px solid var(--border); border-radius: 8px; padding: 6px 9px; background: var(--info-bg); color: var(--text-h); }

@@ -22,6 +22,11 @@ export interface GameContextValue {
   resolveVoting: () => Promise<void>;
   startVoting: () => Promise<void>;
   startNight: () => Promise<void>;
+  requestChallenge: () => Promise<void>;
+  cancelChallenge: () => Promise<void>;
+  acceptChallenge: (challengerId: string) => Promise<void>;
+  rejectChallenge: (challengerId: string) => Promise<void>;
+  finishDiscussion: () => Promise<void>;
 }
 
 export const GameContext = createContext<GameContextValue | null>(null);

@@ -154,6 +154,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
     resolveVoting: () => runAction(() => apiClient.resolveVoting(gameId!).then(() => undefined)),
     startVoting: () => runAction(() => apiClient.startVoting(gameId!).then(() => undefined)),
     startNight: () => runAction(() => apiClient.startNight(gameId!).then(() => undefined)),
+    requestChallenge: () => runAction(() => apiClient.requestChallenge(gameId!)),
+    cancelChallenge: () => runAction(() => apiClient.cancelChallenge(gameId!)),
+    acceptChallenge: (challengerId) => runAction(() => apiClient.acceptChallenge(gameId!, challengerId)),
+    rejectChallenge: (challengerId) => runAction(() => apiClient.rejectChallenge(gameId!, challengerId)),
+    finishDiscussion: () => runAction(() => apiClient.finishDiscussion(gameId!)),
   };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;

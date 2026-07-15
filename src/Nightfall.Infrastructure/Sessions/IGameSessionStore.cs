@@ -8,4 +8,5 @@ public interface IGameSessionStore
     Task<GameState?> GetAsync(Guid gameId);
     Task SaveAsync(GameState game);
     Task RemoveAsync(Guid gameId);
+    Task<IReadOnlyList<Guid>> ListActiveIdsAsync();
 }

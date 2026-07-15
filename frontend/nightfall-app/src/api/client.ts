@@ -113,6 +113,12 @@ export class NightfallApiClient {
     return this.request<void>("POST", `/api/games/${gameId}/start-night`);
   }
 
+  requestChallenge(gameId: string) { return this.request<void>("POST", `/api/games/${gameId}/discussion/challenges`); }
+  cancelChallenge(gameId: string) { return this.request<void>("DELETE", `/api/games/${gameId}/discussion/challenges`); }
+  acceptChallenge(gameId: string, challengerId: string) { return this.request<void>("POST", `/api/games/${gameId}/discussion/challenges/${challengerId}/accept`); }
+  rejectChallenge(gameId: string, challengerId: string) { return this.request<void>("POST", `/api/games/${gameId}/discussion/challenges/${challengerId}/reject`); }
+  finishDiscussion(gameId: string) { return this.request<void>("POST", `/api/games/${gameId}/discussion/finish`); }
+
   getVoiceToken(gameId: string, channel: "main" | "mafia") {
     return this.request<VoiceTokenResponse>("GET", `/api/games/${gameId}/voice-token?channel=${channel}`);
   }

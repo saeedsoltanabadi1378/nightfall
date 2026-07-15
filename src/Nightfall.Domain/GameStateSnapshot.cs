@@ -20,7 +20,8 @@ public sealed record GameStateSnapshot(
     IReadOnlyCollection<Guid> InvestigatedTargets,
     int? LastDoctorSelfHealNight,
     NightResult? LastNightResult,
-    VotingResult? LastVotingResult);
+    VotingResult? LastVotingResult,
+    DiscussionStateSnapshot? Discussion = null);
 
 public sealed record PlayerSnapshot(Guid Id, string TelegramUsername, Role? Role, bool IsAlive, int? GodfatherRank);
 

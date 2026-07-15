@@ -79,6 +79,36 @@ public static class GameEndpoints
             return Results.Ok();
         }).WithName("StartNight");
 
+        group.MapPost("/{gameId:guid}/discussion/challenges", async (Guid gameId, GameService games, HttpContext http) =>
+        {
+            await games.RequestChallengeAsync(gameId, http.User.GetTelegramUserId());
+            return Results.Ok();
+        }).WithName("RequestDiscussionChallenge");
+
+        group.MapDelete("/{gameId:guid}/discussion/challenges", async (Guid gameId, GameService games, HttpContext http) =>
+        {
+            await games.CancelChallengeAsync(gameId, http.User.GetTelegramUserId());
+            return Results.Ok();
+        }).WithName("CancelDiscussionChallenge");
+
+        group.MapPost("/{gameId:guid}/discussion/challenges/{challengerId:guid}/accept", async (Guid gameId, Guid challengerId, GameService games, HttpContext http) =>
+        {
+            await games.AcceptChallengeAsync(gameId, http.User.GetTelegramUserId(), challengerId);
+            return Results.Ok();
+        }).WithName("AcceptDiscussionChallenge");
+
+        group.MapPost("/{gameId:guid}/discussion/challenges/{challengerId:guid}/reject", async (Guid gameId, Guid challengerId, GameService games, HttpContext http) =>
+        {
+            await games.RejectChallengeAsync(gameId, http.User.GetTelegramUserId(), challengerId);
+            return Results.Ok();
+        }).WithName("RejectDiscussionChallenge");
+
+        group.MapPost("/{gameId:guid}/discussion/finish", async (Guid gameId, GameService games, HttpContext http) =>
+        {
+            await games.FinishDiscussionAsync(gameId, http.User.GetTelegramUserId());
+            return Results.Ok();
+        }).WithName("FinishDiscussionSegment");
+
         group.MapGet("/{gameId:guid}/voice-token", async (Guid gameId, string channel, GameService games, IAgoraTokenService agoraTokens, HttpContext http) =>
         {
             var game = await games.LoadOrThrowAsync(gameId);
@@ -93,7 +123,9 @@ public static class GameEndpoints
                 case "main":
                     channelName = $"nightfall-{gameId}";
                     bool isNight = game.CurrentPhase is GamePhase.NightZero or GamePhase.Night;
-                    role = player.IsAlive && !isNight ? AgoraRtcRole.Publisher : AgoraRtcRole.Subscriber;
+                    bool isActiveDayParticipant = game.CurrentPhase == GamePhase.Day && game.Discussion?.ActivePlayerId == player.Id;
+                    role = player.IsAlive && (isActiveDayParticipant || game.CurrentPhase is GamePhase.Voting or GamePhase.Results)
+                        ? AgoraRtcRole.Publisher : AgoraRtcRole.Subscriber;
                     break;
                 case "mafia":
                     if (!player.IsAlive || !player.IsMafiaAligned)

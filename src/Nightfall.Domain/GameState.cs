@@ -7,6 +7,9 @@ public sealed class GameState
     private readonly Dictionary<Guid, Guid?> _votes = new();
     private readonly HashSet<Guid> _investigatedTargets = new();
     private int? _lastDoctorSelfHealNight;
+    private readonly List<Guid> _discussionSpeakerOrder = new();
+    private readonly HashSet<Guid> _completedSpeakers = new();
+    private readonly HashSet<Guid> _pendingChallengeRequests = new();
 
     public Guid GameId { get; private init; }
     public DateTimeOffset CreatedAt { get; private init; }
@@ -26,6 +29,7 @@ public sealed class GameState
 
     /// <summary>Outcome of the most recent ResolveVoting() call, if any.</summary>
     public VotingResult? LastVotingResult { get; private set; }
+    public DiscussionStateSnapshot? Discussion { get; private set; }
 
     public GameState(GameConfig? config = null, Guid? gameId = null, long? telegramChatId = null)
     {
@@ -51,7 +55,8 @@ public sealed class GameState
         _investigatedTargets.ToList(),
         _lastDoctorSelfHealNight,
         LastNightResult,
-        LastVotingResult);
+        LastVotingResult,
+        Discussion);
 
     /// <summary>Reconstructs a GameState (including in-flight submissions) from a snapshot, bypassing normal transition guards.</summary>
     public static GameState FromSnapshot(GameStateSnapshot snapshot)
@@ -93,6 +98,14 @@ public sealed class GameState
         }
 
         game._lastDoctorSelfHealNight = snapshot.LastDoctorSelfHealNight;
+
+        if (snapshot.Discussion is { } discussion)
+        {
+            game._discussionSpeakerOrder.AddRange(discussion.SpeakerOrder);
+            game._completedSpeakers.UnionWith(discussion.CompletedSpeakers);
+            game._pendingChallengeRequests.UnionWith(discussion.PendingChallengeRequests);
+            game.RefreshDiscussion(discussion.ActivePlayerId, discussion.OriginalSpeakerId, discussion.SegmentType, discussion.Deadline);
+        }
 
         return game;
     }
@@ -235,6 +248,8 @@ public sealed class GameState
         Guid? promotedId = eliminated.HasValue ? HandlePotentialGodfatherDeath(eliminated.Value) : null;
 
         AdvancePhaseAfterResolution(GamePhase.Day);
+        if (CurrentPhase == GamePhase.Day)
+            StartDiscussion(DateTimeOffset.UtcNow);
 
         var result = new NightResult(NightNumber, eliminated, wasSaved, investigateTarget, investigateResult, promotedId);
         LastNightResult = result;
@@ -350,6 +365,122 @@ public sealed class GameState
             throw new GameException("Voting can only start from the Day phase.");
         CurrentPhase = GamePhase.Voting;
     }
+
+    public void EnsureDiscussionStarted(DateTimeOffset now)
+    {
+        if (CurrentPhase != GamePhase.Day || Discussion is not null)
+            return;
+        StartDiscussion(now);
+    }
+
+    public bool AdvanceExpiredDiscussion(DateTimeOffset now)
+    {
+        EnsureDiscussionStarted(now);
+        if (Discussion is null || Discussion.Deadline > now)
+            return false;
+        CompleteActiveDiscussionSegment(now);
+        return true;
+    }
+
+    public void RequestChallenge(Guid challengerId, DateTimeOffset now)
+    {
+        AdvanceExpiredDiscussion(now);
+        var discussion = RequireSpeakerSegment();
+        var challenger = GetAliveOrThrow(challengerId, "Challenger");
+        if (challenger.Id == discussion.ActivePlayerId)
+            throw new GameException("The current speaker cannot challenge themselves.");
+        if (!_pendingChallengeRequests.Add(challenger.Id))
+            throw new GameException("You have already requested a challenge.");
+        RefreshDiscussionFromCurrent();
+    }
+
+    public void CancelChallenge(Guid challengerId, DateTimeOffset now)
+    {
+        AdvanceExpiredDiscussion(now);
+        RequireSpeakerSegment();
+        if (!_pendingChallengeRequests.Remove(challengerId))
+            throw new GameException("You do not have a pending challenge request.");
+        RefreshDiscussionFromCurrent();
+    }
+
+    public void RejectChallenge(Guid speakerId, Guid challengerId, DateTimeOffset now)
+    {
+        AdvanceExpiredDiscussion(now);
+        var discussion = RequireSpeakerSegment();
+        if (discussion.ActivePlayerId != speakerId)
+            throw new GameException("Only the current speaker can reject challenges.");
+        if (!_pendingChallengeRequests.Remove(challengerId))
+            throw new GameException("That challenge request is no longer pending.");
+        RefreshDiscussionFromCurrent();
+    }
+
+    public void AcceptChallenge(Guid speakerId, Guid challengerId, DateTimeOffset now)
+    {
+        AdvanceExpiredDiscussion(now);
+        var discussion = RequireSpeakerSegment();
+        if (discussion.ActivePlayerId != speakerId)
+            throw new GameException("Only the current speaker can accept a challenge.");
+        if (!_pendingChallengeRequests.Contains(challengerId))
+            throw new GameException("That challenge request is no longer pending.");
+        GetAliveOrThrow(challengerId, "Challenger");
+        _pendingChallengeRequests.Clear();
+        RefreshDiscussion(challengerId, discussion.OriginalSpeakerId, DiscussionSegmentType.Challenge, now.AddSeconds(40));
+    }
+
+    public void FinishDiscussionSegment(Guid playerId, DateTimeOffset now)
+    {
+        AdvanceExpiredDiscussion(now);
+        if (Discussion is null || Discussion.ActivePlayerId != playerId)
+            throw new GameException("Only the active speaker can finish this segment.");
+        CompleteActiveDiscussionSegment(now);
+    }
+
+    private void StartDiscussion(DateTimeOffset now)
+    {
+        _discussionSpeakerOrder.Clear();
+        _discussionSpeakerOrder.AddRange(_players.Where(p => p.IsAlive).Select(p => p.Id));
+        _completedSpeakers.Clear();
+        _pendingChallengeRequests.Clear();
+        StartNextSpeaker(now);
+    }
+
+    private void CompleteActiveDiscussionSegment(DateTimeOffset now)
+    {
+        if (Discussion is null) return;
+        _completedSpeakers.Add(Discussion.OriginalSpeakerId);
+        _pendingChallengeRequests.Clear();
+        StartNextSpeaker(now);
+    }
+
+    private void StartNextSpeaker(DateTimeOffset now)
+    {
+        var next = _discussionSpeakerOrder.FirstOrDefault(id => !_completedSpeakers.Contains(id) && GetPlayer(id)?.IsAlive == true);
+        if (next == Guid.Empty)
+        {
+            Discussion = null;
+            CurrentPhase = GamePhase.Voting;
+            return;
+        }
+        RefreshDiscussion(next, next, DiscussionSegmentType.Speaker, now.AddSeconds(60));
+    }
+
+    private DiscussionStateSnapshot RequireSpeakerSegment()
+    {
+        if (CurrentPhase != GamePhase.Day || Discussion is not { SegmentType: DiscussionSegmentType.Speaker } discussion)
+            throw new GameException("Challenges are only available during a speaker turn.");
+        return discussion;
+    }
+
+    private void RefreshDiscussionFromCurrent()
+    {
+        var current = Discussion!;
+        RefreshDiscussion(current.ActivePlayerId, current.OriginalSpeakerId, current.SegmentType, current.Deadline);
+    }
+
+    private void RefreshDiscussion(Guid activePlayerId, Guid originalSpeakerId, DiscussionSegmentType segmentType, DateTimeOffset deadline) =>
+        Discussion = new DiscussionStateSnapshot(
+            _discussionSpeakerOrder.ToList(), _completedSpeakers.ToList(), activePlayerId, originalSpeakerId,
+            segmentType, deadline, _pendingChallengeRequests.ToList());
 
     public void StartNight()
     {

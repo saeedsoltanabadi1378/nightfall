@@ -18,6 +18,7 @@ export type Role = "Villager" | "Detective" | "Doctor" | "Mafia" | "Godfather";
 export type NightActionType = "Investigate" | "Heal" | "Kill";
 
 export type WinCondition = "None" | "VillagersWin" | "MafiaWin";
+export type DiscussionSegmentType = "Speaker" | "Challenge";
 
 export interface PlayerView {
   playerId: string;
@@ -53,6 +54,18 @@ export interface GameView {
   youAreController: boolean;
   requiredNightActionsComplete: boolean;
   votes: VoteView[];
+  discussion: DiscussionView | null;
+}
+
+export interface DiscussionView {
+  segmentType: DiscussionSegmentType;
+  activePlayerId: string;
+  originalSpeakerId: string;
+  deadline: string;
+  pendingChallengerIds: string[];
+  yourChallengeIsPending: boolean;
+  youCanRequestChallenge: boolean;
+  youCanFinish: boolean;
 }
 
 export interface VoteView {

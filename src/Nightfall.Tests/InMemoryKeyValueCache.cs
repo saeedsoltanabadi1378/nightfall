@@ -20,4 +20,10 @@ internal sealed class InMemoryKeyValueCache : IKeyValueCache
         _store.Remove(key);
         return Task.CompletedTask;
     }
+
+    public Task<IReadOnlyList<string>> GetKeysAsync(string pattern)
+    {
+        var prefix = pattern.TrimEnd('*');
+        return Task.FromResult<IReadOnlyList<string>>(_store.Keys.Where(k => k.StartsWith(prefix, StringComparison.Ordinal)).ToList());
+    }
 }
