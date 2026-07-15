@@ -12,15 +12,17 @@ public sealed class GameHistoryRepository : IGameHistoryRepository
         _db = db;
     }
 
-    public async Task SaveCompletedGameAsync(GameState game, long telegramChatId, CancellationToken ct = default)
+    public async Task SaveCompletedGameAsync(GameState game, CancellationToken ct = default)
     {
         if (game.CurrentPhase != GamePhase.Ended)
             throw new InvalidOperationException("Only a game that has reached the Ended phase can be saved to history.");
+        if (game.TelegramChatId is null)
+            throw new InvalidOperationException("Game has no TelegramChatId and cannot be saved to history.");
 
         var record = new GameRecord
         {
             Id = game.GameId,
-            TelegramChatId = telegramChatId,
+            TelegramChatId = game.TelegramChatId.Value,
             CreatedAt = game.CreatedAt.UtcDateTime,
             EndedAt = DateTime.UtcNow,
             Result = game.CheckWinCondition(),

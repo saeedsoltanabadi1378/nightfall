@@ -10,16 +10,29 @@ public sealed class GameState
 
     public Guid GameId { get; private init; }
     public DateTimeOffset CreatedAt { get; private init; }
+
+    /// <summary>Which Telegram chat this game belongs to. Optional/nullable so pure-Domain usage
+    /// (e.g. unit tests) doesn't need a fake chat id; the API always supplies one.</summary>
+    public long? TelegramChatId { get; private init; }
+
     public GameConfig Config { get; private init; } = GameConfig.Default;
     public GamePhase CurrentPhase { get; private set; } = GamePhase.Lobby;
     public int NightNumber { get; private set; }
     public IReadOnlyList<Player> Players => _players;
 
-    public GameState(GameConfig? config = null, Guid? gameId = null)
+    /// <summary>Outcome of the most recent ResolveNight() call, if any. Lets a caller (e.g. an API
+    /// handler on a later request) show "your investigation result" / "who died" after the fact.</summary>
+    public NightResult? LastNightResult { get; private set; }
+
+    /// <summary>Outcome of the most recent ResolveVoting() call, if any.</summary>
+    public VotingResult? LastVotingResult { get; private set; }
+
+    public GameState(GameConfig? config = null, Guid? gameId = null, long? telegramChatId = null)
     {
         Config = config ?? GameConfig.Default;
         GameId = gameId ?? Guid.NewGuid();
         CreatedAt = DateTimeOffset.UtcNow;
+        TelegramChatId = telegramChatId;
     }
 
     public Player? GetPlayer(Guid id) => _players.FirstOrDefault(p => p.Id == id);
@@ -28,6 +41,7 @@ public sealed class GameState
     public GameStateSnapshot ToSnapshot() => new(
         GameId,
         CreatedAt,
+        TelegramChatId,
         CurrentPhase,
         NightNumber,
         Config,
@@ -35,16 +49,20 @@ public sealed class GameState
         _nightActions.Values.Select(a => new NightActionSnapshot(a.ActorId, a.TargetId, a.ActionType)).ToList(),
         new Dictionary<Guid, Guid?>(_votes),
         _investigatedTargets.ToList(),
-        _lastDoctorSelfHealNight);
+        _lastDoctorSelfHealNight,
+        LastNightResult,
+        LastVotingResult);
 
     /// <summary>Reconstructs a GameState (including in-flight submissions) from a snapshot, bypassing normal transition guards.</summary>
     public static GameState FromSnapshot(GameStateSnapshot snapshot)
     {
-        var game = new GameState(snapshot.Config, snapshot.GameId)
+        var game = new GameState(snapshot.Config, snapshot.GameId, snapshot.TelegramChatId)
         {
             CreatedAt = snapshot.CreatedAt,
             CurrentPhase = snapshot.CurrentPhase,
-            NightNumber = snapshot.NightNumber
+            NightNumber = snapshot.NightNumber,
+            LastNightResult = snapshot.LastNightResult,
+            LastVotingResult = snapshot.LastVotingResult
         };
 
         foreach (var ps in snapshot.Players)
@@ -216,7 +234,9 @@ public sealed class GameState
 
         AdvancePhaseAfterResolution(GamePhase.Day);
 
-        return new NightResult(NightNumber, eliminated, wasSaved, investigateTarget, investigateResult, promotedId);
+        var result = new NightResult(NightNumber, eliminated, wasSaved, investigateTarget, investigateResult, promotedId);
+        LastNightResult = result;
+        return result;
     }
 
     private Guid? ResolveGodfatherKillTarget()
@@ -284,7 +304,9 @@ public sealed class GameState
         if (tally.Count == 0)
         {
             AdvancePhaseAfterResolution(GamePhase.Results);
-            return new VotingResult(null, false, Array.Empty<Guid>(), null);
+            var noVotesResult = new VotingResult(null, false, Array.Empty<Guid>(), null);
+            LastVotingResult = noVotesResult;
+            return noVotesResult;
         }
 
         int maxVotes = tally.Max(t => t.Count);
@@ -303,7 +325,9 @@ public sealed class GameState
 
         AdvancePhaseAfterResolution(GamePhase.Results);
 
-        return new VotingResult(eliminated, isTie, topVoted, promotedId);
+        var result = new VotingResult(eliminated, isTie, topVoted, promotedId);
+        LastVotingResult = result;
+        return result;
     }
 
     public void StartVoting()

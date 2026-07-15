@@ -83,4 +83,23 @@ public class GameStateSnapshotTests
 
         Assert.Equal(villager.Id, result.Eliminated);
     }
+
+    [Fact]
+    public void RoundTrip_PreservesLastNightResultAndLastVotingResult()
+    {
+        var (game, players) = TestGameFactory.CreateAssignedGame(9);
+        var godfather = players.Godfather();
+        var villager = players.Villagers()[0];
+
+        game.SubmitNightAction(godfather.Id, villager.Id, NightActionType.Kill);
+        var nightResult = game.ResolveNight();
+
+        game.StartVoting();
+        var votingResult = game.ResolveVoting(); // no votes cast -> no elimination
+
+        var restored = GameState.FromSnapshot(game.ToSnapshot());
+
+        Assert.Equal(nightResult, restored.LastNightResult);
+        Assert.Equal(votingResult, restored.LastVotingResult);
+    }
 }

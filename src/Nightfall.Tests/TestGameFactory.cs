@@ -9,9 +9,9 @@ namespace Nightfall.Tests;
 /// </summary>
 internal static class TestGameFactory
 {
-    public static (GameState Game, List<Player> Players) CreateAssignedGame(int playerCount, GameConfig? config = null)
+    public static (GameState Game, List<Player> Players) CreateAssignedGame(int playerCount, GameConfig? config = null, long? telegramChatId = null)
     {
-        var game = new GameState(config);
+        var game = new GameState(config, telegramChatId: telegramChatId);
         var players = Enumerable.Range(1, playerCount)
             .Select(i => new Player(Guid.NewGuid(), $"player{i}"))
             .ToList();

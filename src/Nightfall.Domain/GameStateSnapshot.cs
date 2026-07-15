@@ -10,6 +10,7 @@ namespace Nightfall.Domain;
 public sealed record GameStateSnapshot(
     Guid GameId,
     DateTimeOffset CreatedAt,
+    long? TelegramChatId,
     GamePhase CurrentPhase,
     int NightNumber,
     GameConfig Config,
@@ -17,7 +18,9 @@ public sealed record GameStateSnapshot(
     IReadOnlyList<NightActionSnapshot> PendingNightActions,
     IReadOnlyDictionary<Guid, Guid?> PendingVotes,
     IReadOnlyCollection<Guid> InvestigatedTargets,
-    int? LastDoctorSelfHealNight);
+    int? LastDoctorSelfHealNight,
+    NightResult? LastNightResult,
+    VotingResult? LastVotingResult);
 
 public sealed record PlayerSnapshot(Guid Id, string TelegramUsername, Role? Role, bool IsAlive, int? GodfatherRank);
 

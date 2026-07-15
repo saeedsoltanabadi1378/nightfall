@@ -34,9 +34,9 @@ public class GameHistoryRepositoryTests : IDisposable
         _connection.Dispose();
     }
 
-    private static GameState EndedGame(out List<Player> players)
+    private static GameState EndedGame(out List<Player> players, long telegramChatId = 1)
     {
-        var (game, ps) = TestGameFactory.CreateAssignedGame(5);
+        var (game, ps) = TestGameFactory.CreateAssignedGame(5, telegramChatId: telegramChatId);
         players = ps;
         var godfather = ps.Godfather();
 
@@ -54,17 +54,27 @@ public class GameHistoryRepositoryTests : IDisposable
     [Fact]
     public async Task SaveCompletedGameAsync_NonEndedGame_Throws()
     {
-        var (game, _) = TestGameFactory.CreateAssignedGame(5);
+        var (game, _) = TestGameFactory.CreateAssignedGame(5, telegramChatId: 1);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _repository.SaveCompletedGameAsync(game, telegramChatId: 1));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _repository.SaveCompletedGameAsync(game));
+    }
+
+    [Fact]
+    public async Task SaveCompletedGameAsync_NoTelegramChatId_Throws()
+    {
+        var game = EndedGame(out _, telegramChatId: 0);
+        // EndedGame always sets a chat id via TestGameFactory; simulate the "none" case directly.
+        var gameWithoutChat = GameState.FromSnapshot(game.ToSnapshot() with { TelegramChatId = null });
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _repository.SaveCompletedGameAsync(gameWithoutChat));
     }
 
     [Fact]
     public async Task SaveCompletedGameAsync_ThenGet_RoundTripsGameAndPlayers()
     {
-        var game = EndedGame(out var players);
+        var game = EndedGame(out var players, telegramChatId: 555);
 
-        await _repository.SaveCompletedGameAsync(game, telegramChatId: 555);
+        await _repository.SaveCompletedGameAsync(game);
 
         var record = await _repository.GetAsync(game.GameId);
 
@@ -82,13 +92,13 @@ public class GameHistoryRepositoryTests : IDisposable
     [Fact]
     public async Task GetForChatAsync_OnlyReturnsGamesForThatChat_NewestFirst()
     {
-        var gameA = EndedGame(out _);
-        var gameB = EndedGame(out _);
-        var gameOtherChat = EndedGame(out _);
+        var gameA = EndedGame(out _, telegramChatId: 100);
+        var gameB = EndedGame(out _, telegramChatId: 100);
+        var gameOtherChat = EndedGame(out _, telegramChatId: 200);
 
-        await _repository.SaveCompletedGameAsync(gameA, telegramChatId: 100);
-        await _repository.SaveCompletedGameAsync(gameB, telegramChatId: 100);
-        await _repository.SaveCompletedGameAsync(gameOtherChat, telegramChatId: 200);
+        await _repository.SaveCompletedGameAsync(gameA);
+        await _repository.SaveCompletedGameAsync(gameB);
+        await _repository.SaveCompletedGameAsync(gameOtherChat);
 
         var results = await _repository.GetForChatAsync(100);
 
