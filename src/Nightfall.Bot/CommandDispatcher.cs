@@ -56,6 +56,8 @@ public sealed class CommandDispatcher
                 case "resolvevoting": await HandleResolveVotingAsync(chatId, actor); break;
                 case "startnight": await HandleStartNightAsync(chatId, actor); break;
                 case "myrole": await HandleMyRoleAsync(chatId, actor); break;
+                case "solotest": await HandleSoloTestAsync(chatId, actor); break;
+                case "solonext": await HandleSoloNextAsync(chatId, actor); break;
                 case "help": case "start": await HandleHelpAsync(chatId); break;
             }
         }
@@ -271,7 +273,10 @@ public sealed class CommandDispatcher
         var view = await _api.GetGameAsync(gameId.Value, actor);
         try
         {
-            await _messenger.SendTextAsync(actor.Id, FormatRoleReveal(view));
+            string? miniAppUrl = _botOptions.MiniAppBaseUrl is { Length: > 0 } baseUrl
+                ? $"{baseUrl}?startapp={gameId.Value}"
+                : null;
+            await _messenger.SendWithMiniAppButtonAsync(actor.Id, FormatRoleReveal(view), miniAppUrl);
         }
         catch (Exception ex)
         {
@@ -279,6 +284,161 @@ public sealed class CommandDispatcher
             await _messenger.SendTextAsync(chatId, $"{DisplayName(actor)}: please message me privately first so I can DM you.");
         }
     }
+
+    private async Task HandleSoloTestAsync(long chatId, TelegramIdentity actor)
+    {
+        if (!await EnsureSoloTestEnabledAsync(chatId))
+            return;
+
+        var gameId = await GetActiveGameOrReplyAsync(chatId);
+        if (gameId is null)
+            return;
+
+        var view = await _api.GetGameAsync(gameId.Value, actor);
+        if (view.Phase != GamePhase.Lobby)
+        {
+            await _messenger.SendTextAsync(chatId, "Solo test can only fill a lobby before roles are assigned.");
+            return;
+        }
+
+        int needed = Math.Max(0, 5 - view.Players.Count);
+        for (int i = 1; i <= needed; i++)
+            await _api.JoinGameAsync(gameId.Value, SoloIdentity(i));
+
+        await _api.StartGameAsync(gameId.Value, actor);
+        var playerView = await _api.GetGameAsync(gameId.Value, actor);
+        string? miniAppUrl = _botOptions.MiniAppBaseUrl is { Length: > 0 } baseUrl
+            ? $"{baseUrl}?startapp={gameId.Value}"
+            : null;
+
+        await _messenger.SendTextAsync(chatId,
+            "Solo test started with automated players. Use /solonext to advance one phase at a time.");
+        await _messenger.SendWithMiniAppButtonAsync(actor.Id, FormatRoleReveal(playerView), miniAppUrl);
+    }
+
+    private async Task HandleSoloNextAsync(long chatId, TelegramIdentity actor)
+    {
+        if (!await EnsureSoloTestEnabledAsync(chatId))
+            return;
+
+        var gameId = await GetActiveGameOrReplyAsync(chatId);
+        if (gameId is null)
+            return;
+
+        var view = await _api.GetGameAsync(gameId.Value, actor);
+        switch (view.Phase)
+        {
+            case GamePhase.NightZero:
+            case GamePhase.Night:
+                await SubmitSoloNightActionsAsync(gameId.Value);
+                var nightResult = await _api.ResolveNightAsync(gameId.Value, actor);
+                var afterNight = await _api.GetGameAsync(gameId.Value, actor);
+                await _messenger.SendTextAsync(chatId, FormatNightResult(nightResult, afterNight));
+                await AnnounceIfGameEndedAsync(chatId, afterNight);
+                break;
+
+            case GamePhase.Day:
+                await _api.StartVotingAsync(gameId.Value, actor);
+                await _messenger.SendTextAsync(chatId,
+                    "Voting is open. Cast your vote in the Mini App, then use /solonext again.");
+                break;
+
+            case GamePhase.Voting:
+                await SubmitSoloVotesAsync(gameId.Value, view);
+                var votingResult = await _api.ResolveVotingAsync(gameId.Value, actor);
+                var afterVoting = await _api.GetGameAsync(gameId.Value, actor);
+                await _messenger.SendTextAsync(chatId, FormatVotingResult(votingResult, afterVoting));
+                await AnnounceIfGameEndedAsync(chatId, afterVoting);
+                break;
+
+            case GamePhase.Results:
+                await _api.StartNightAsync(gameId.Value, actor);
+                await _messenger.SendTextAsync(chatId,
+                    "The next night started. Choose your action in the Mini App, then use /solonext.");
+                break;
+
+            case GamePhase.Ended:
+                await _messenger.SendTextAsync(chatId, "The solo test ended. Use /newgame for another run.");
+                break;
+
+            default:
+                await _messenger.SendTextAsync(chatId, "Use /solotest from an active lobby first.");
+                break;
+        }
+    }
+
+    private async Task SubmitSoloNightActionsAsync(Guid gameId)
+    {
+        var fakeEntries = (await _rosterStore.GetAsync(gameId))
+            .Where(entry => entry.Username.StartsWith("solo_bot_", StringComparison.Ordinal));
+
+        foreach (var entry in fakeEntries)
+        {
+            var fake = SoloIdentityFromRoster(entry);
+            var view = await _api.GetGameAsync(gameId, fake);
+            if (!view.YouAreAlive || view.YourRole is not { } role)
+                continue;
+
+            NightActionType? action = role switch
+            {
+                Role.Godfather or Role.Mafia => NightActionType.Kill,
+                Role.Detective => NightActionType.Investigate,
+                Role.Doctor => NightActionType.Heal,
+                _ => null
+            };
+            if (action is null)
+                continue;
+
+            var targets = view.Players
+                .Where(player => player.IsAlive && player.PlayerId != view.YourPlayerId)
+                .OrderByDescending(player => player.TelegramUsername.StartsWith("solo_bot_", StringComparison.Ordinal));
+
+            foreach (var target in targets)
+            {
+                try
+                {
+                    await _api.SubmitNightActionAsync(gameId, fake, target.PlayerId, action.Value);
+                    break;
+                }
+                catch (NightfallApiException)
+                {
+                    // Try another target when a role-specific rule rejects this one.
+                }
+            }
+        }
+    }
+
+    private async Task SubmitSoloVotesAsync(Guid gameId, GameViewDto humanView)
+    {
+        var victim = humanView.Players.FirstOrDefault(player =>
+            player.IsAlive && player.TelegramUsername.StartsWith("solo_bot_", StringComparison.Ordinal));
+        var fakeEntries = (await _rosterStore.GetAsync(gameId))
+            .Where(entry => entry.Username.StartsWith("solo_bot_", StringComparison.Ordinal));
+
+        foreach (var entry in fakeEntries)
+        {
+            var fake = SoloIdentityFromRoster(entry);
+            var view = await _api.GetGameAsync(gameId, fake);
+            if (view.YouAreAlive)
+                await _api.SubmitVoteAsync(gameId, fake, victim?.PlayerId);
+        }
+    }
+
+    private async Task<bool> EnsureSoloTestEnabledAsync(long chatId)
+    {
+        if (_botOptions.SoloTestEnabled)
+            return true;
+
+        await _messenger.SendTextAsync(chatId,
+            "Solo test mode is disabled. Set SOLO_TEST_ENABLED=true and redeploy to use it.");
+        return false;
+    }
+
+    private static TelegramIdentity SoloIdentity(int index) =>
+        new(-9_000_000_000L - index, $"Solo {index}", null, $"solo_bot_{index}", null);
+
+    private static TelegramIdentity SoloIdentityFromRoster(GameRosterEntry entry) =>
+        new(entry.TelegramUserId, entry.Username, null, entry.Username, null);
 
     private Task HandleHelpAsync(long chatId) => _messenger.SendTextAsync(chatId,
         "Nightfall commands:\n" +

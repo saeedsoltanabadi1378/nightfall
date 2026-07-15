@@ -10,4 +10,7 @@ public sealed class BotOptions
     /// the frontend isn't built yet as of this phase, so DM role-reveal falls back to plain text
     /// without a button when this isn't configured.</summary>
     public string? MiniAppBaseUrl { get; set; }
+
+    /// <summary>Enables development-only commands that fill and advance a game with synthetic players.</summary>
+    public bool SoloTestEnabled { get; set; }
 }

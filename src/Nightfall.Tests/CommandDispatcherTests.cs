@@ -84,6 +84,45 @@ public class CommandDispatcherTests
     }
 
     [Fact]
+    public async Task SoloTest_DisabledByDefault_DoesNotCallApi()
+    {
+        var (dispatcher, messenger, api, _, _) = CreateDispatcher();
+
+        await dispatcher.HandleMessageAsync(TextMessage(ChatId, 1, "alice", "/solotest"));
+
+        Assert.Empty(api.Calls);
+        Assert.Contains("disabled", messenger.Sent.Single().Text);
+    }
+
+    [Fact]
+    public async Task SoloTest_WithTwoRealPlayers_AddsThreeSyntheticPlayersAndStarts()
+    {
+        var options = new BotOptions
+        {
+            NightfallApiBaseUrl = "http://localhost",
+            MiniAppBaseUrl = "https://t.me/NightfallBot/game",
+            SoloTestEnabled = true
+        };
+        var (dispatcher, messenger, api, chatIndex, _) = CreateDispatcher(options);
+        await chatIndex.SetActiveGameAsync(ChatId, api.CreatedGameId);
+        var aliceId = Guid.NewGuid();
+        api.ViewsByTelegramUserId[1] = new GameViewDto(
+            api.CreatedGameId, GamePhase.Lobby, 0,
+            new[]
+            {
+                new PlayerViewDto(aliceId, "alice", true, null),
+                new PlayerViewDto(Guid.NewGuid(), "bob", true, null)
+            },
+            aliceId, Role.Villager, true, null, null, null, WinCondition.None);
+
+        await dispatcher.HandleMessageAsync(TextMessage(ChatId, 1, "alice", "/solotest"));
+
+        Assert.Equal(3, api.Calls.Count(call => call.StartsWith("Join(")));
+        Assert.Contains("StartGame", api.Calls);
+        Assert.Contains(messenger.Sent, sent => sent.ChatId == 1 && sent.MiniAppUrl != null);
+    }
+
+    [Fact]
     public async Task StartGame_RevealsRolesByDm_AndAnnouncesInGroup()
     {
         var (dispatcher, messenger, api, chatIndex, roster) = CreateDispatcher();

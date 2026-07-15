@@ -71,6 +71,7 @@ services:
       Agora__AppCertificate: ${AGORA_APP_CERTIFICATE:?AGORA_APP_CERTIFICATE is required}
       Bot__NightfallApiBaseUrl: "http://api:8080"
       Bot__MiniAppBaseUrl: ${MINI_APP_BASE_URL:-}
+      Bot__SoloTestEnabled: ${SOLO_TEST_ENABLED:-false}
 
   frontend:
     build:
