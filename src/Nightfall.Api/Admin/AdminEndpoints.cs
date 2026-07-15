@@ -41,10 +41,28 @@ public static class AdminEndpoints
         {
             int p = Math.Max(1, page ?? 1), size = Math.Clamp(pageSize ?? 25, 1, 100);
             if (string.Equals(status, "active", StringComparison.OrdinalIgnoreCase)) { var games = await LoadActiveAsync(redis, sessions); return Results.Ok(new { items = games.Select(g => g.ToSnapshot()), total = games.Count, page = p, pageSize = size }); }
-            var query = db.Games.Include(x => x.Players).AsNoTracking().OrderByDescending(x => x.EndedAt);
-            var total = await query.CountAsync(); var items = await query.Skip((p - 1) * size).Take(size).ToListAsync(); return Results.Ok(new { items, total, page = p, pageSize = size });
+            var query = db.Games.AsNoTracking().OrderByDescending(x => x.EndedAt);
+            var total = await query.CountAsync();
+            var items = await query.Skip((p - 1) * size).Take(size).Select(game => new AdminGameView(
+                game.Id, game.TelegramChatId, game.CreatedAt, game.EndedAt, game.Result, game.Status,
+                game.CancellationReason,
+                game.Players.Select(player => new AdminGamePlayerView(
+                    player.PlayerId, player.TelegramUserId, player.TelegramUsername, player.Role,
+                    player.SurvivedToEnd, player.GodfatherRank)).ToList())).ToListAsync();
+            return Results.Ok(new { items, total, page = p, pageSize = size });
         });
-        group.MapGet("/games/{id:guid}", async (Guid id, IGameSessionStore sessions, NightfallDbContext db) => { var live = await sessions.GetAsync(id); return live is not null ? Results.Ok(live.ToSnapshot()) : (await db.Games.Include(x => x.Players).SingleOrDefaultAsync(x => x.Id == id) is { } past ? Results.Ok(past) : Results.NotFound()); });
+        group.MapGet("/games/{id:guid}", async (Guid id, IGameSessionStore sessions, NightfallDbContext db) =>
+        {
+            var live = await sessions.GetAsync(id);
+            if (live is not null) return Results.Ok(live.ToSnapshot());
+            var past = await db.Games.AsNoTracking().Where(game => game.Id == id).Select(game => new AdminGameView(
+                game.Id, game.TelegramChatId, game.CreatedAt, game.EndedAt, game.Result, game.Status,
+                game.CancellationReason,
+                game.Players.Select(player => new AdminGamePlayerView(
+                    player.PlayerId, player.TelegramUserId, player.TelegramUsername, player.Role,
+                    player.SurvivedToEnd, player.GodfatherRank)).ToList())).SingleOrDefaultAsync();
+            return past is not null ? Results.Ok(past) : Results.NotFound();
+        });
         group.MapPost("/games/{id:guid}/cancel", async (Guid id, CancelRequest request, HttpContext http, GameService games) => { if (!ValidCsrf(http)) return Results.BadRequest(new { detail = "Invalid CSRF token." }); if (string.IsNullOrWhiteSpace(request.Reason)) return Results.BadRequest(new { detail = "A cancellation reason is required." }); return await games.CancelByAdminAsync(id, request.Reason, http.User.Identity?.Name ?? "admin") ? Results.Ok() : Results.NotFound(); });
         group.MapGet("/players", async (int? page, int? pageSize, string? search, NightfallDbContext db) => { int p=Math.Max(1,page??1), size=Math.Clamp(pageSize??25,1,100); var q=db.UserProfiles.AsNoTracking().Where(x => search == null || x.Username.ToLower().Contains(search.ToLower())); return Results.Ok(new { items=await q.OrderByDescending(x=>x.LastSeenAt).Skip((p-1)*size).Take(size).ToListAsync(), total=await q.CountAsync(), page=p,pageSize=size }); });
         group.MapGet("/chats", async (int? page, int? pageSize, NightfallDbContext db) => { int p=Math.Max(1,page??1), size=Math.Clamp(pageSize??25,1,100); var q=db.ChatProfiles.AsNoTracking(); return Results.Ok(new { items=await q.OrderByDescending(x=>x.LastSeenAt).Skip((p-1)*size).Take(size).ToListAsync(), total=await q.CountAsync(),page=p,pageSize=size }); });
@@ -78,3 +96,5 @@ public static class AdminEndpoints
 public sealed record LoginRequest(string Username, string Password);
 public sealed record CancelRequest(string Reason);
 public sealed record SettingsRequest(int Version,int MinPlayers,int MaxPlayers,bool MaintenanceMode,string MaintenanceMessage,string[] EnabledCommands,bool SoloTestEnabled,string MiniAppBaseUrl,string HelpMessage,string WelcomeMessage);
+public sealed record AdminGameView(Guid Id, long TelegramChatId, DateTime CreatedAt, DateTime EndedAt, Nightfall.Domain.WinCondition Result, string Status, string? CancellationReason, IReadOnlyList<AdminGamePlayerView> Players);
+public sealed record AdminGamePlayerView(Guid PlayerId, long? TelegramUserId, string TelegramUsername, Nightfall.Domain.Role? Role, bool SurvivedToEnd, int? GodfatherRank);
