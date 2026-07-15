@@ -1,0 +1,1 @@
+.live-grid{display:grid;gap:15px}.live-card small{color:var(--a-muted)}.live-card details{margin-top:15px}.live-card summary{color:#c4b5fd;cursor:pointer}.live-card pre{overflow:auto;background:#090b12;padding:15px;border-radius:8px;color:#aeb7ca;font-size:11px}.danger{border:1px solid #fb718566;background:#fb71851a;color:#fda4af;border-radius:8px;padding:8px 12px;cursor:pointer}

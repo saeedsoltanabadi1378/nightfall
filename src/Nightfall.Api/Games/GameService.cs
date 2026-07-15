@@ -1,6 +1,8 @@
 using Nightfall.Domain;
 using Nightfall.Infrastructure;
 using Nightfall.Infrastructure.History;
+using Nightfall.Infrastructure.Admin;
+using Microsoft.EntityFrameworkCore;
 using Nightfall.Infrastructure.Sessions;
 
 namespace Nightfall.Api.Games;
@@ -12,30 +14,38 @@ public sealed class GameService
     private readonly IGameNotifier _notifier;
     private readonly IChatGameIndex _chatGameIndex;
     private readonly IGameRosterStore _rosterStore;
+    private readonly IBotSettingsService _settings;
+    private readonly NightfallDbContext _db;
 
     public GameService(
         IGameSessionStore sessionStore,
         IGameHistoryRepository historyRepository,
         IGameNotifier notifier,
         IChatGameIndex chatGameIndex,
-        IGameRosterStore rosterStore)
+        IGameRosterStore rosterStore, IBotSettingsService settings, NightfallDbContext db)
     {
         _sessionStore = sessionStore;
         _historyRepository = historyRepository;
         _notifier = notifier;
         _chatGameIndex = chatGameIndex;
         _rosterStore = rosterStore;
+        _settings = settings;
+        _db = db;
     }
 
     public async Task<Guid> CreateGameAsync(long telegramChatId, long creatorTelegramUserId, string creatorUsername)
     {
-        var game = new GameState(telegramChatId: telegramChatId);
+        var settings = await _settings.GetAsync();
+        var game = new GameState(new GameConfig { MinPlayers = settings.MinPlayers, MaxPlayers = settings.MaxPlayers }, telegramChatId: telegramChatId);
         var creatorId = PlayerIdentity.DeriveId(game.GameId, creatorTelegramUserId);
         game.AddPlayer(new Player(creatorId, creatorUsername));
 
         await _sessionStore.SaveAsync(game);
         await _chatGameIndex.SetActiveGameAsync(telegramChatId, game.GameId);
         await _rosterStore.AddAsync(game.GameId, creatorTelegramUserId, creatorUsername);
+        await TrackActivityAsync(telegramChatId, creatorTelegramUserId, creatorUsername);
+        _db.OperationalEvents.Add(new() { Category = "Game", Message = "Game created", TargetType = "Game", TargetId = game.GameId.ToString() });
+        await _db.SaveChangesAsync();
         return game.GameId;
     }
 
@@ -56,6 +66,7 @@ public sealed class GameService
             game.AddPlayer(new Player(playerId, username));
             await SaveAndNotifyAsync(game);
             await _rosterStore.AddAsync(gameId, telegramUserId, username);
+            if (game.TelegramChatId is { } chatId) { await TrackActivityAsync(chatId, telegramUserId, username); await _db.SaveChangesAsync(); }
         }
     }
 
@@ -143,5 +154,22 @@ public sealed class GameService
         var callerId = PlayerIdentity.DeriveId(game.GameId, telegramUserId);
         if (controller.Id != callerId)
             throw new ForbiddenGameActionException("Only the game creator can manage game phases.");
+    }
+
+    public async Task<bool> CancelByAdminAsync(Guid gameId, string reason, string actor)
+    {
+        var game = await _sessionStore.GetAsync(gameId);
+        if (game is null) return await _db.Games.AnyAsync(x => x.Id == gameId && x.Status == "Cancelled");
+        var roster = await _rosterStore.GetAsync(gameId);
+        _db.Games.Add(new GameRecord { Id=game.GameId, TelegramChatId=game.TelegramChatId ?? 0, CreatedAt=game.CreatedAt.UtcDateTime, EndedAt=DateTime.UtcNow, Result=WinCondition.None, Status="Cancelled", CancellationReason=reason, Players=game.Players.Select(p => new GamePlayerRecord { Id=Guid.NewGuid(), PlayerId=p.Id, TelegramUserId=roster.FirstOrDefault(r=>r.Username==p.TelegramUsername)?.TelegramUserId, TelegramUsername=p.TelegramUsername, Role=p.Role, SurvivedToEnd=p.IsAlive, GodfatherRank=p.GodfatherRank }).ToList() });
+        _db.OperationalEvents.Add(new() { Category="AdminAudit", Message="Game cancelled", IsAdminAudit=true, TargetType="Game", TargetId=gameId.ToString(), MetadataJson=System.Text.Json.JsonSerializer.Serialize(new { reason, actor }) });
+        await _db.SaveChangesAsync();
+        await _sessionStore.RemoveAsync(gameId); if(game.TelegramChatId is { } chat) await _chatGameIndex.ClearActiveGameAsync(chat); await _rosterStore.RemoveAsync(gameId); await _notifier.NotifyGameUpdatedAsync(game); return true;
+    }
+
+    private async Task TrackActivityAsync(long chatId, long userId, string username)
+    {
+        var now=DateTime.UtcNow; var user=await _db.UserProfiles.FindAsync(userId); if(user is null)_db.UserProfiles.Add(new(){TelegramUserId=userId,Username=username,FirstSeenAt=now,LastSeenAt=now}); else {user.Username=username;user.LastSeenAt=now;}
+        var chat=await _db.ChatProfiles.FindAsync(chatId); if(chat is null)_db.ChatProfiles.Add(new(){TelegramChatId=chatId,FirstSeenAt=now,LastSeenAt=now}); else chat.LastSeenAt=now;
     }
 }

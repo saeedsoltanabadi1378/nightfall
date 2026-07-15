@@ -1,9 +1,12 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Nightfall.Api.Auth;
+using Nightfall.Api.Admin;
 using Nightfall.Api.Errors;
 using Nightfall.Api.Games;
 using Nightfall.Api.Hubs;
@@ -22,13 +25,25 @@ builder.Services.AddOptions<TelegramAuthOptions>()
     .Validate(o => !string.IsNullOrWhiteSpace(o.BotToken), $"Missing required configuration: {TelegramAuthOptions.SectionName}:BotToken")
     .ValidateOnStart();
 builder.Services.AddSingleton<TelegramInitDataValidator>();
+builder.Services.AddOptions<AdminOptions>().Bind(builder.Configuration.GetSection(AdminOptions.SectionName));
 
 builder.Services.AddScoped<GameService>();
 builder.Services.AddSingleton<IGameNotifier, SignalRGameNotifier>();
 builder.Services.AddSignalR();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer();
+    .AddJwtBearer()
+    .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
+    {
+        options.Cookie.Name = "nightfall-admin";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SecurePolicy = builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing") ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
+        options.Cookie.SameSite = SameSiteMode.Strict;
+        options.ExpireTimeSpan = TimeSpan.FromHours(8);
+        options.SlidingExpiration = false;
+        options.Events.OnRedirectToLogin = c => { c.Response.StatusCode = StatusCodes.Status401Unauthorized; return Task.CompletedTask; };
+        options.Events.OnRedirectToAccessDenied = c => { c.Response.StatusCode = StatusCodes.Status403Forbidden; return Task.CompletedTask; };
+    });
 // Bind JwtBearerOptions lazily from IOptions<JwtOptions> (resolved at host-startup time, after all
 // configuration sources — including test overrides — are fully composed) rather than reading
 // builder.Configuration directly here, which would only see whatever sources exist *so far*.
@@ -63,7 +78,8 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
             }
         };
     });
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options => options.AddPolicy("AdminOnly", p => p.AddAuthenticationSchemes(CookieAuthenticationDefaults.AuthenticationScheme).RequireRole("Admin")));
+builder.Services.AddRateLimiter(options => options.AddFixedWindowLimiter("admin-login", o => { o.PermitLimit = 5; o.Window = TimeSpan.FromMinutes(1); o.QueueLimit = 0; }));
 
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
 builder.Services.AddCors(options =>
@@ -92,11 +108,13 @@ if (app.Environment.IsDevelopment())
 app.UseExceptionHandler();
 app.UseHttpsRedirection();
 app.UseCors();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" })).AllowAnonymous();
 app.MapAuthEndpoints();
+app.MapAdminEndpoints();
 app.MapGameEndpoints();
 app.MapHub<GameHub>("/hubs/game");
 

@@ -14,5 +14,7 @@ public sealed class GameRecord
     public DateTime CreatedAt { get; set; }
     public DateTime EndedAt { get; set; }
     public WinCondition Result { get; set; }
+    public string Status { get; set; } = "Completed";
+    public string? CancellationReason { get; set; }
     public List<GamePlayerRecord> Players { get; set; } = new();
 }

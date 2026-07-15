@@ -1,15 +1,18 @@
 using Microsoft.EntityFrameworkCore;
 using Nightfall.Domain;
+using Nightfall.Infrastructure.Sessions;
 
 namespace Nightfall.Infrastructure.History;
 
 public sealed class GameHistoryRepository : IGameHistoryRepository
 {
     private readonly NightfallDbContext _db;
+    private readonly IGameRosterStore? _rosterStore;
 
-    public GameHistoryRepository(NightfallDbContext db)
+    public GameHistoryRepository(NightfallDbContext db, IGameRosterStore? rosterStore = null)
     {
         _db = db;
+        _rosterStore = rosterStore;
     }
 
     public async Task SaveCompletedGameAsync(GameState game, CancellationToken ct = default)
@@ -19,6 +22,7 @@ public sealed class GameHistoryRepository : IGameHistoryRepository
         if (game.TelegramChatId is null)
             throw new InvalidOperationException("Game has no TelegramChatId and cannot be saved to history.");
 
+        var roster = _rosterStore is null ? [] : await _rosterStore.GetAsync(game.GameId);
         var record = new GameRecord
         {
             Id = game.GameId,
@@ -30,6 +34,7 @@ public sealed class GameHistoryRepository : IGameHistoryRepository
             {
                 Id = Guid.NewGuid(),
                 PlayerId = p.Id,
+                TelegramUserId = roster.FirstOrDefault(r => r.Username == p.TelegramUsername)?.TelegramUserId,
                 TelegramUsername = p.TelegramUsername,
                 Role = p.Role,
                 SurvivedToEnd = p.IsAlive,

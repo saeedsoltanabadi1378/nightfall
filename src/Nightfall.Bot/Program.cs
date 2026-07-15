@@ -37,6 +37,7 @@ builder.Services.AddHttpClient<INightfallApiClient, NightfallApiClient>((sp, cli
 builder.Services.AddSingleton<IBotMessenger, TelegramBotMessenger>();
 builder.Services.AddSingleton<CommandDispatcher>();
 builder.Services.AddHostedService<Worker>();
+builder.Services.AddHostedService<BotHeartbeatService>();
 
 var host = builder.Build();
 host.Run();

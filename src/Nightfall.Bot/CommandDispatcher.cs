@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using Nightfall.Domain;
 using Nightfall.Infrastructure.Auth;
 using Nightfall.Infrastructure.Sessions;
+using Nightfall.Infrastructure.Admin;
 using Telegram.Bot.Types;
 
 namespace Nightfall.Bot;
@@ -15,6 +16,8 @@ public sealed class CommandDispatcher
     private readonly IGameRosterStore _rosterStore;
     private readonly BotOptions _botOptions;
     private readonly ILogger<CommandDispatcher> _logger;
+    private readonly IBotSettingsService? _settings;
+    private BotSettingsSnapshot? _currentSettings;
 
     public CommandDispatcher(
         INightfallApiClient api,
@@ -22,7 +25,7 @@ public sealed class CommandDispatcher
         IChatGameIndex chatGameIndex,
         IGameRosterStore rosterStore,
         IOptions<BotOptions> botOptions,
-        ILogger<CommandDispatcher> logger)
+        ILogger<CommandDispatcher> logger, IBotSettingsService? settings = null)
     {
         _api = api;
         _messenger = messenger;
@@ -30,6 +33,7 @@ public sealed class CommandDispatcher
         _rosterStore = rosterStore;
         _botOptions = botOptions.Value;
         _logger = logger;
+        _settings = settings;
     }
 
     public async Task HandleMessageAsync(Message message)
@@ -40,6 +44,9 @@ public sealed class CommandDispatcher
         string? command = ParseCommand(text);
         if (command is null)
             return;
+
+        _currentSettings = _settings is null ? null : await _settings.GetAsync();
+        if (_currentSettings is not null && !_currentSettings.EnabledCommands.Contains(command)) return;
 
         long chatId = message.Chat.Id;
         var actor = ToIdentity(message.From);
@@ -106,6 +113,7 @@ public sealed class CommandDispatcher
 
     private async Task HandleNewGameAsync(long chatId, TelegramIdentity actor)
     {
+        if (await RejectMaintenanceAsync(chatId)) return;
         var existing = await _chatGameIndex.GetActiveGameAsync(chatId);
         if (existing is not null)
         {
@@ -115,12 +123,13 @@ public sealed class CommandDispatcher
 
         var gameId = await _api.CreateGameAsync(chatId, actor);
         await _messenger.SendWithUrlButtonAsync(chatId,
-            $"🌙 New Nightfall game created by {DisplayName(actor)}! Open the lobby to join, or use /join. Once everyone's in, /startgame.",
+            (_currentSettings?.WelcomeMessage ?? "🌙 New Nightfall game created by {creator}! Open the lobby to join, or use /join. Once everyone's in, /startgame.").Replace("{creator}", DisplayName(actor)),
             BuildMiniAppUrl(gameId));
     }
 
     private async Task HandleJoinAsync(long chatId, TelegramIdentity actor)
     {
+        if (await RejectMaintenanceAsync(chatId)) return;
         var gameId = await GetActiveGameOrReplyAsync(chatId);
         if (gameId is null)
             return;
@@ -426,7 +435,7 @@ public sealed class CommandDispatcher
 
     private async Task<bool> EnsureSoloTestEnabledAsync(long chatId)
     {
-        if (_botOptions.SoloTestEnabled)
+        if (_currentSettings?.SoloTestEnabled ?? _botOptions.SoloTestEnabled)
             return true;
 
         await _messenger.SendTextAsync(chatId,
@@ -441,18 +450,16 @@ public sealed class CommandDispatcher
         new(entry.TelegramUserId, entry.Username, null, entry.Username, null);
 
     private string? BuildMiniAppUrl(Guid gameId) =>
-        _botOptions.MiniAppBaseUrl is { Length: > 0 } baseUrl
+        ((_currentSettings?.MiniAppBaseUrl is { Length: > 0 } dynamicUrl ? dynamicUrl : _botOptions.MiniAppBaseUrl) is { Length: > 0 } baseUrl)
             ? $"{baseUrl}?startapp={gameId}"
             : null;
 
-    private Task HandleHelpAsync(long chatId) => _messenger.SendTextAsync(chatId,
-        "Nightfall commands:\n" +
-        "/newgame — start a new lobby in this chat\n" +
-        "/join — join the current lobby\n" +
-        "/startgame — assign roles and begin\n" +
-        "/resolvenight — resolve the current night\n" +
-        "/startvoting — open voting\n" +
-        "/resolvevoting — tally votes\n" +
-        "/startnight — begin the next night\n" +
-        "/myrole — DM yourself your current role");
+    private Task HandleHelpAsync(long chatId) => _messenger.SendTextAsync(chatId, _currentSettings?.HelpMessage ?? BotSettingsDefaults.HelpMessage);
+
+    private async Task<bool> RejectMaintenanceAsync(long chatId)
+    {
+        if (_currentSettings?.MaintenanceMode != true) return false;
+        await _messenger.SendTextAsync(chatId, _currentSettings.MaintenanceMessage);
+        return true;
+    }
 }

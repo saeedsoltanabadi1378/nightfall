@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Nightfall.Infrastructure.Agora;
+using Nightfall.Infrastructure.Admin;
 using Nightfall.Infrastructure.Auth;
 using Nightfall.Infrastructure.History;
 using Nightfall.Infrastructure.Sessions;
@@ -39,6 +40,7 @@ public static class InfrastructureServiceCollectionExtensions
 
         services.AddDbContext<NightfallDbContext>((sp, options) =>
             options.UseNpgsql(sp.GetRequiredService<IOptions<ConnectionStringsOptions>>().Value.Postgres));
+        services.AddSingleton<IBotSettingsService, BotSettingsService>();
         services.AddScoped<IGameHistoryRepository, GameHistoryRepository>();
 
         services.AddSingleton<IConnectionMultiplexer>(sp =>
