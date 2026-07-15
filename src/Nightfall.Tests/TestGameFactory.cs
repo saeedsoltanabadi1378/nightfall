@@ -11,6 +11,13 @@ internal static class TestGameFactory
 {
     public static (GameState Game, List<Player> Players) CreateAssignedGame(int playerCount, GameConfig? config = null, long? telegramChatId = null)
     {
+        var result = CreateNightZeroGame(playerCount, config, telegramChatId);
+        result.Game.AdvanceToFirstActionNight();
+        return result;
+    }
+
+    public static (GameState Game, List<Player> Players) CreateNightZeroGame(int playerCount, GameConfig? config = null, long? telegramChatId = null)
+    {
         var game = new GameState(config, telegramChatId: telegramChatId);
         var players = Enumerable.Range(1, playerCount)
             .Select(i => new Player(Guid.NewGuid(), $"player{i}"))
@@ -31,6 +38,15 @@ internal static class TestGameFactory
     public static Player Detective(this List<Player> players) => players.Single(p => p.Role == Role.Detective);
     public static Player Doctor(this List<Player> players) => players.Single(p => p.Role == Role.Doctor);
     public static List<Player> Villagers(this List<Player> players) => players.Where(p => p.Role == Role.Villager).ToList();
+
+    /// <summary>Ends discussion-only Night Zero and advances through an empty day/vote to the first actionable Night.</summary>
+    public static void AdvanceToFirstActionNight(this GameState game)
+    {
+        game.ResolveNight();
+        game.StartVoting();
+        game.ResolveVoting();
+        game.StartNight();
+    }
 
     /// <summary>Runs a Day → Voting → Results → Night cycle with no votes cast, leaving the game ready for the next SubmitNightAction/ResolveNight.</summary>
     public static void CycleThroughToNextNight(this GameState game)

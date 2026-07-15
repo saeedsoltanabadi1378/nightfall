@@ -59,9 +59,10 @@ public sealed class GameService
         }
     }
 
-    public async Task StartGameAsync(Guid gameId)
+    public async Task StartGameAsync(Guid gameId, long telegramUserId)
     {
         var game = await LoadOrThrowAsync(gameId);
+        EnsureController(game, telegramUserId);
         game.AssignRoles();
         await SaveAndNotifyAsync(game);
     }
@@ -74,9 +75,12 @@ public sealed class GameService
         await SaveAndNotifyAsync(game);
     }
 
-    public async Task<NightResult> ResolveNightAsync(Guid gameId)
+    public async Task<NightResult> ResolveNightAsync(Guid gameId, long telegramUserId)
     {
         var game = await LoadOrThrowAsync(gameId);
+        EnsureController(game, telegramUserId);
+        if (game.CurrentPhase == GamePhase.Night && !game.AreRequiredNightActionsComplete())
+            throw new GameException("All living night roles must submit their actions before night can end.");
         var result = game.ResolveNight();
         await SaveAndNotifyAsync(game);
         return result;
@@ -90,24 +94,27 @@ public sealed class GameService
         await SaveAndNotifyAsync(game);
     }
 
-    public async Task<VotingResult> ResolveVotingAsync(Guid gameId)
+    public async Task<VotingResult> ResolveVotingAsync(Guid gameId, long telegramUserId)
     {
         var game = await LoadOrThrowAsync(gameId);
+        EnsureController(game, telegramUserId);
         var result = game.ResolveVoting();
         await SaveAndNotifyAsync(game);
         return result;
     }
 
-    public async Task StartVotingAsync(Guid gameId)
+    public async Task StartVotingAsync(Guid gameId, long telegramUserId)
     {
         var game = await LoadOrThrowAsync(gameId);
+        EnsureController(game, telegramUserId);
         game.StartVoting();
         await SaveAndNotifyAsync(game);
     }
 
-    public async Task StartNightAsync(Guid gameId)
+    public async Task StartNightAsync(Guid gameId, long telegramUserId)
     {
         var game = await LoadOrThrowAsync(gameId);
+        EnsureController(game, telegramUserId);
         game.StartNight();
         await SaveAndNotifyAsync(game);
     }
@@ -127,5 +134,14 @@ public sealed class GameService
         }
 
         await _notifier.NotifyGameUpdatedAsync(game);
+    }
+
+    private static void EnsureController(GameState game, long telegramUserId)
+    {
+        var controller = game.Players.FirstOrDefault()
+            ?? throw new ForbiddenGameActionException("This game has no controller.");
+        var callerId = PlayerIdentity.DeriveId(game.GameId, telegramUserId);
+        if (controller.Id != callerId)
+            throw new ForbiddenGameActionException("Only the game creator can manage game phases.");
     }
 }

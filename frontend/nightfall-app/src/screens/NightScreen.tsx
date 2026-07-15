@@ -18,7 +18,8 @@ export function NightScreen() {
 
   if (!view) return null;
 
-  const action = view.yourRole ? actionByRole[view.yourRole] : undefined;
+  const isFirstNight = view.phase === "NightZero";
+  const action = !isFirstNight && view.yourRole ? actionByRole[view.yourRole] : undefined;
   const targets = view.players.filter((p) => p.isAlive && (action?.includeSelf || p.playerId !== view.yourPlayerId));
 
   async function handleSubmit() {
@@ -33,6 +34,12 @@ export function NightScreen() {
 
       <RoleBanner role={view.yourRole} alive={view.youAreAlive} />
 
+      {isFirstNight && (
+        <div className="banner banner--info">
+          First night is for Mafia planning only. Detective, Doctor, and Mafia actions begin next night.
+        </div>
+      )}
+
       {view.yourLastInvestigationResult && (
         <div className="banner banner--info">
           Last investigation:{" "}
@@ -43,7 +50,7 @@ export function NightScreen() {
 
       {!view.youAreAlive && <p className="screen__subtitle">You are no longer able to act. Watch quietly.</p>}
 
-      {view.youAreAlive && !action && <p className="screen__subtitle">No night action for your role. Waiting for others…</p>}
+      {!isFirstNight && view.youAreAlive && !action && <p className="screen__subtitle">No night action for your role. Waiting for others…</p>}
 
       {view.youAreAlive && action && !submitted && (
         <>
@@ -58,11 +65,21 @@ export function NightScreen() {
 
       {view.youAreAlive && action && submitted && <div className="banner banner--info">Action submitted. Waiting for the night to resolve…</div>}
 
-      <hr className="screen__divider" />
-      <p className="screen__hint">Once everyone has acted, anyone can resolve the night.</p>
-      <button className="button button--secondary" disabled={busy} onClick={() => void resolveNight()}>
-        Resolve night
-      </button>
+      {view.youAreController && (
+        <>
+          <hr className="screen__divider" />
+          <p className="screen__hint">
+            {isFirstNight ? "End the discussion when the Mafia is ready." : "Night ends after every living night role submits an action."}
+          </p>
+          <button
+            className="button button--secondary"
+            disabled={busy || (!isFirstNight && !view.requiredNightActionsComplete)}
+            onClick={() => void resolveNight()}
+          >
+            End night
+          </button>
+        </>
+      )}
     </div>
   );
 }

@@ -18,7 +18,9 @@ public sealed record GameViewDto(
     DetectiveResultViewDto? YourLastInvestigationResult,
     EliminationViewDto? LastNightElimination,
     EliminationViewDto? LastVotingElimination,
-    WinCondition WinCondition);
+    WinCondition WinCondition,
+    bool YouAreController = false,
+    bool RequiredNightActionsComplete = false);
 
 public sealed record PlayerViewDto(Guid PlayerId, string TelegramUsername, bool IsAlive, Role? RevealedRole);
 

@@ -37,9 +37,9 @@ public static class GameEndpoints
             return Results.Ok(new CreateGameResponse(gameId));
         }).WithName("GetActiveGameForChat");
 
-        group.MapPost("/{gameId:guid}/start", async (Guid gameId, GameService games) =>
+        group.MapPost("/{gameId:guid}/start", async (Guid gameId, GameService games, HttpContext http) =>
         {
-            await games.StartGameAsync(gameId);
+            await games.StartGameAsync(gameId, http.User.GetTelegramUserId());
             return Results.Ok();
         }).WithName("StartGame");
 
@@ -49,9 +49,9 @@ public static class GameEndpoints
             return Results.Ok();
         }).WithName("SubmitNightAction");
 
-        group.MapPost("/{gameId:guid}/resolve-night", async (Guid gameId, GameService games) =>
+        group.MapPost("/{gameId:guid}/resolve-night", async (Guid gameId, GameService games, HttpContext http) =>
         {
-            var result = await games.ResolveNightAsync(gameId);
+            var result = await games.ResolveNightAsync(gameId, http.User.GetTelegramUserId());
             return Results.Ok(result);
         }).WithName("ResolveNight");
 
@@ -61,21 +61,21 @@ public static class GameEndpoints
             return Results.Ok();
         }).WithName("SubmitVote");
 
-        group.MapPost("/{gameId:guid}/resolve-voting", async (Guid gameId, GameService games) =>
+        group.MapPost("/{gameId:guid}/resolve-voting", async (Guid gameId, GameService games, HttpContext http) =>
         {
-            var result = await games.ResolveVotingAsync(gameId);
+            var result = await games.ResolveVotingAsync(gameId, http.User.GetTelegramUserId());
             return Results.Ok(result);
         }).WithName("ResolveVoting");
 
-        group.MapPost("/{gameId:guid}/start-voting", async (Guid gameId, GameService games) =>
+        group.MapPost("/{gameId:guid}/start-voting", async (Guid gameId, GameService games, HttpContext http) =>
         {
-            await games.StartVotingAsync(gameId);
+            await games.StartVotingAsync(gameId, http.User.GetTelegramUserId());
             return Results.Ok();
         }).WithName("StartVoting");
 
-        group.MapPost("/{gameId:guid}/start-night", async (Guid gameId, GameService games) =>
+        group.MapPost("/{gameId:guid}/start-night", async (Guid gameId, GameService games, HttpContext http) =>
         {
-            await games.StartNightAsync(gameId);
+            await games.StartNightAsync(gameId, http.User.GetTelegramUserId());
             return Results.Ok();
         }).WithName("StartNight");
 
@@ -92,11 +92,14 @@ public static class GameEndpoints
             {
                 case "main":
                     channelName = $"nightfall-{gameId}";
-                    role = player.IsAlive ? AgoraRtcRole.Publisher : AgoraRtcRole.Subscriber;
+                    bool isNight = game.CurrentPhase is GamePhase.NightZero or GamePhase.Night;
+                    role = player.IsAlive && !isNight ? AgoraRtcRole.Publisher : AgoraRtcRole.Subscriber;
                     break;
                 case "mafia":
                     if (!player.IsAlive || !player.IsMafiaAligned)
                         throw new ForbiddenGameActionException("Only living Mafia-aligned players may join the Mafia voice channel.");
+                    if (game.CurrentPhase is not (GamePhase.NightZero or GamePhase.Night))
+                        throw new ForbiddenGameActionException("The Mafia voice channel is only available at night.");
                     channelName = $"nightfall-{gameId}-mafia";
                     role = AgoraRtcRole.Publisher;
                     break;

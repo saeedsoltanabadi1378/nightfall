@@ -33,9 +33,13 @@ export function DayScreen() {
 
       {actionError && <div className="banner banner--error">{actionError}</div>}
 
-      <button className="button button--primary" disabled={busy} onClick={() => void startVoting()}>
-        Start voting
-      </button>
+      {view.youAreController ? (
+        <button className="button button--primary" disabled={busy} onClick={() => void startVoting()}>
+          Start voting
+        </button>
+      ) : (
+        <p className="screen__hint">Waiting for the game creator to start voting.</p>
+      )}
     </div>
   );
 }

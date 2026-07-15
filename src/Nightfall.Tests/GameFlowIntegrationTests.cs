@@ -70,6 +70,13 @@ public class GameFlowIntegrationTests : IClassFixture<NightfallApiFactory>, IAsy
         }
         Assert.Equal(GamePhase.NightZero, views[0].Phase);
 
+        // Night Zero is discussion-only. The controller ends it, then advances through the first
+        // day/vote before role actions become available on Night 1.
+        (await creator.Client.PostAsync($"/api/games/{gameId}/resolve-night", null)).EnsureSuccessStatusCode();
+        (await creator.Client.PostAsync($"/api/games/{gameId}/start-voting", null)).EnsureSuccessStatusCode();
+        (await creator.Client.PostAsync($"/api/games/{gameId}/resolve-voting", null)).EnsureSuccessStatusCode();
+        (await creator.Client.PostAsync($"/api/games/{gameId}/start-night", null)).EnsureSuccessStatusCode();
+
         var godfather = players[FindIndexByRole(views, Role.Godfather)];
         var detective = players[FindIndexByRole(views, Role.Detective)];
         var doctor = players[FindIndexByRole(views, Role.Doctor)];
@@ -218,6 +225,21 @@ public class GameFlowIntegrationTests : IClassFixture<NightfallApiFactory>, IAsy
     }
 
     [Fact]
+    public async Task PhaseManagement_NonCreator_Returns403()
+    {
+        var players = await CreateAuthenticatedPlayersAsync(2, seed: 8);
+        var creator = players[0];
+        var other = players[1];
+        var created = await (await creator.Client.PostAsJsonAsync("/api/games", new CreateGameRequest(42008)))
+            .Content.ReadFromJsonAsync<CreateGameResponse>();
+        (await other.Client.PostAsync($"/api/games/{created!.GameId}/players", null)).EnsureSuccessStatusCode();
+
+        var response = await other.Client.PostAsync($"/api/games/{created.GameId}/start", null);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
     public async Task VoiceToken_MainChannel_Succeeds_MafiaChannel_ForbiddenToNonMafia()
     {
         var players = await CreateAuthenticatedPlayersAsync(5, seed: 4);
@@ -235,6 +257,7 @@ public class GameFlowIntegrationTests : IClassFixture<NightfallApiFactory>, IAsy
         mainTokenResponse.EnsureSuccessStatusCode();
         var mainToken = await mainTokenResponse.Content.ReadFromJsonAsync<VoiceTokenResponse>();
         Assert.False(string.IsNullOrWhiteSpace(mainToken!.Token));
+        Assert.Equal("Subscriber", mainToken.Role);
 
         if (view!.YourRole is not (Role.Mafia or Role.Godfather))
         {

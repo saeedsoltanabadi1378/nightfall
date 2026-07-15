@@ -40,10 +40,14 @@ export function VotingScreen() {
 
       {view.youAreAlive && submitted && <div className="banner banner--info">Vote submitted. Waiting for the rest of the town…</div>}
 
-      <hr className="screen__divider" />
-      <button className="button button--secondary" disabled={busy} onClick={() => void resolveVoting()}>
-        Tally votes
-      </button>
+      {view.youAreController && (
+        <>
+          <hr className="screen__divider" />
+          <button className="button button--secondary" disabled={busy} onClick={() => void resolveVoting()}>
+            Tally votes
+          </button>
+        </>
+      )}
     </div>
   );
 }

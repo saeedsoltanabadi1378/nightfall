@@ -9,6 +9,7 @@ export function VoiceControls() {
   const { view, apiClient } = useGame();
   const sessionRef = useRef<VoiceSession>(new VoiceSession());
   const [connected, setConnected] = useState<VoiceChannel | null>(null);
+  const [publishing, setPublishing] = useState(false);
   const [muted, setMuted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,21 +23,24 @@ export function VoiceControls() {
 
   if (!view) return null;
 
-  const canJoinMafiaChannel = view.youAreAlive && (view.yourRole === "Mafia" || view.yourRole === "Godfather");
+  const isNight = view.phase === "NightZero" || view.phase === "Night";
+  const canJoinMafiaChannel = isNight && view.youAreAlive && (view.yourRole === "Mafia" || view.yourRole === "Godfather");
 
   async function join(channel: VoiceChannel) {
     setBusy(true);
     setError(null);
     try {
       const voiceToken = await apiClient.getVoiceToken(view!.gameId, channel);
+      const canPublish = voiceToken.role === "Publisher";
       await sessionRef.current.join(
         import.meta.env.VITE_AGORA_APP_ID,
         voiceToken.channel,
         voiceToken.token,
         voiceToken.uid,
-        view!.youAreAlive,
+        canPublish,
       );
       setConnected(channel);
+      setPublishing(canPublish);
       setMuted(false);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not join voice chat. Check microphone permissions.");
@@ -50,6 +54,7 @@ export function VoiceControls() {
     try {
       await sessionRef.current.leave();
       setConnected(null);
+      setPublishing(false);
     } finally {
       setBusy(false);
     }
@@ -68,7 +73,7 @@ export function VoiceControls() {
       {!connected && (
         <div className="voice-controls__buttons">
           <button className="button button--voice" disabled={busy} onClick={() => void join("main")}>
-            🎙️ Join room voice
+            {isNight ? "🔇 Listen to room voice" : "🎙️ Join room voice"}
           </button>
           {canJoinMafiaChannel && (
             <button className="button button--voice" disabled={busy} onClick={() => void join("mafia")}>
@@ -81,9 +86,9 @@ export function VoiceControls() {
       {connected && (
         <div className="voice-controls__active">
           <span className="voice-controls__status">
-            🔊 In {connected === "mafia" ? "Mafia" : "room"} voice{view.youAreAlive ? "" : " (listening only)"}
+            🔊 In {connected === "mafia" ? "Mafia" : "room"} voice{publishing ? "" : " (listening only)"}
           </span>
-          {view.youAreAlive && (
+          {publishing && (
             <button className="button button--voice" disabled={busy} onClick={() => void toggleMute()}>
               {muted ? "🔇 Unmute" : "🎤 Mute"}
             </button>

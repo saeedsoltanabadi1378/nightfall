@@ -174,8 +174,10 @@ public sealed class GameState
 
     public void SubmitNightAction(Guid playerId, Guid targetId, NightActionType actionType)
     {
-        if (CurrentPhase is not (GamePhase.Night or GamePhase.NightZero))
-            throw new GameException("Night actions can only be submitted during Night or NightZero.");
+        if (CurrentPhase == GamePhase.NightZero)
+            throw new GameException("The first night is for Mafia discussion only; role actions begin on the next night.");
+        if (CurrentPhase != GamePhase.Night)
+            throw new GameException("Night actions can only be submitted during Night.");
 
         var actor = GetAliveOrThrow(playerId, "Actor");
         GetAliveOrThrow(targetId, "Target");
@@ -237,6 +239,18 @@ public sealed class GameState
         var result = new NightResult(NightNumber, eliminated, wasSaved, investigateTarget, investigateResult, promotedId);
         LastNightResult = result;
         return result;
+    }
+
+    public bool AreRequiredNightActionsComplete()
+    {
+        if (CurrentPhase == GamePhase.NightZero)
+            return true;
+        if (CurrentPhase != GamePhase.Night)
+            return false;
+
+        return _players
+            .Where(player => player.IsAlive && player.Role is Role.Godfather or Role.Detective or Role.Doctor)
+            .All(player => _nightActions.ContainsKey(player.Id));
     }
 
     private Guid? ResolveGodfatherKillTarget()

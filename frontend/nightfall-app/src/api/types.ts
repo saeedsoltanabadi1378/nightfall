@@ -50,6 +50,8 @@ export interface GameView {
   lastNightElimination: EliminationView | null;
   lastVotingElimination: EliminationView | null;
   winCondition: WinCondition;
+  youAreController: boolean;
+  requiredNightActionsComplete: boolean;
 }
 
 export interface NightResult {

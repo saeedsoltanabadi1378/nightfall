@@ -16,7 +16,9 @@ public sealed record GameView(
     DetectiveResultView? YourLastInvestigationResult,
     EliminationView? LastNightElimination,
     EliminationView? LastVotingElimination,
-    WinCondition WinCondition)
+    WinCondition WinCondition,
+    bool YouAreController,
+    bool RequiredNightActionsComplete)
 {
     public static GameView For(GameState game, Guid viewerId)
     {
@@ -57,7 +59,9 @@ public sealed record GameView(
             investigation,
             nightElimination,
             votingElimination,
-            game.CheckWinCondition());
+            game.CheckWinCondition(),
+            game.Players.FirstOrDefault()?.Id == viewerId,
+            game.AreRequiredNightActionsComplete());
     }
 }
 

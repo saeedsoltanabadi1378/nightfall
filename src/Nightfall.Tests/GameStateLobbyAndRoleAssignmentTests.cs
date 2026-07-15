@@ -42,7 +42,7 @@ public class GameStateLobbyAndRoleAssignmentTests
     [Fact]
     public void AddPlayer_AfterRolesAssigned_Throws()
     {
-        var (game, _) = TestGameFactory.CreateAssignedGame(5);
+        var (game, _) = TestGameFactory.CreateNightZeroGame(5);
 
         Assert.Throws<GameException>(() => game.AddPlayer(NewPlayer()));
     }
@@ -69,7 +69,7 @@ public class GameStateLobbyAndRoleAssignmentTests
     [Fact]
     public void AssignRoles_MovesPhaseToNightZero()
     {
-        var (game, _) = TestGameFactory.CreateAssignedGame(5);
+        var (game, _) = TestGameFactory.CreateNightZeroGame(5);
 
         Assert.Equal(GamePhase.NightZero, game.CurrentPhase);
     }

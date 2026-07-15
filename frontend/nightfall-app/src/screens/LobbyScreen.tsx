@@ -23,10 +23,14 @@ export function LobbyScreen() {
         </button>
       )}
 
-      {youHaveJoined && (
+      {youHaveJoined && view.youAreController && (
         <button className="button button--primary" disabled={busy || !canStart} onClick={() => void startGame()}>
           {canStart ? "Start game" : `Need at least 5 players (${view.players.length}/5)`}
         </button>
+      )}
+
+      {youHaveJoined && !view.youAreController && (
+        <p className="screen__hint">Waiting for the game creator to start.</p>
       )}
     </div>
   );

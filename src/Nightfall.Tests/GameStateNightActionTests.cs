@@ -5,6 +5,31 @@ namespace Nightfall.Tests;
 public class GameStateNightActionTests
 {
     [Fact]
+    public void SubmitNightAction_DuringNightZero_Throws()
+    {
+        var (game, players) = TestGameFactory.CreateNightZeroGame(5);
+
+        var exception = Assert.Throws<GameException>(() => game.SubmitNightAction(
+            players.Detective().Id, players.Villagers()[0].Id, NightActionType.Investigate));
+
+        Assert.Contains("first night", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void RequiredNightActionsComplete_OnlyAfterLivingActionRolesSubmit()
+    {
+        var (game, players) = TestGameFactory.CreateAssignedGame(5);
+        var target = players.Villagers()[0];
+
+        Assert.False(game.AreRequiredNightActionsComplete());
+        game.SubmitNightAction(players.Godfather().Id, target.Id, NightActionType.Kill);
+        game.SubmitNightAction(players.Detective().Id, target.Id, NightActionType.Investigate);
+        game.SubmitNightAction(players.Doctor().Id, players.Doctor().Id, NightActionType.Heal);
+
+        Assert.True(game.AreRequiredNightActionsComplete());
+    }
+
+    [Fact]
     public void SubmitNightAction_OutsideNightPhase_Throws()
     {
         var game = new GameState();

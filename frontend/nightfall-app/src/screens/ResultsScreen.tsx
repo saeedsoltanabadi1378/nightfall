@@ -29,9 +29,13 @@ export function ResultsScreen() {
 
       {actionError && <div className="banner banner--error">{actionError}</div>}
 
-      <button className="button button--primary" disabled={busy} onClick={() => void startNight()}>
-        Continue to next night
-      </button>
+      {view.youAreController ? (
+        <button className="button button--primary" disabled={busy} onClick={() => void startNight()}>
+          Continue to next night
+        </button>
+      ) : (
+        <p className="screen__hint">Waiting for the game creator to continue.</p>
+      )}
     </div>
   );
 }
