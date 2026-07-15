@@ -1,0 +1,12 @@
+# Automatically merged by plain `docker compose up` (not by Coolify, which only reads
+# docker-compose.yml) — restores host port publishing so the stack is reachable at
+# localhost:5299 / localhost:8080 for local development, without putting fixed host ports in the
+# base file where they'd conflict with other stacks on a shared Coolify server.
+services:
+  api:
+    ports:
+      - "5299:8080"
+
+  frontend:
+    ports:
+      - "8080:80"

@@ -42,8 +42,12 @@ services:
       Agora__AppId: ${AGORA_APP_ID:?AGORA_APP_ID is required}
       Agora__AppCertificate: ${AGORA_APP_CERTIFICATE:?AGORA_APP_CERTIFICATE is required}
       Cors__AllowedOrigins__0: ${PUBLIC_FRONTEND_ORIGIN:-http://localhost:8080}
-    ports:
-      - "5299:8080"
+    # No host port binding here on purpose — see docker-compose.override.yml for why local `docker
+    # compose up` still gets one. Under Coolify (or any Traefik/reverse-proxy-managed host), the
+    # proxy routes to this container over the internal Docker network by port alone; publishing a
+    # fixed host port would collide with any other stack on the same server also using it.
+    expose:
+      - "8080"
 
   bot:
     build:
@@ -78,8 +82,8 @@ services:
     restart: unless-stopped
     depends_on:
       - api
-    ports:
-      - "8080:80"
+    expose:
+      - "80"
 
 volumes:
   postgres-data:
