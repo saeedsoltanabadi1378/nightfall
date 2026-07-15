@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Nightfall.Api.Auth;
@@ -8,6 +9,7 @@ using Nightfall.Api.Games;
 using Nightfall.Api.Hubs;
 using Nightfall.Infrastructure;
 using Nightfall.Infrastructure.Auth;
+using Nightfall.Infrastructure.History;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -97,6 +99,25 @@ app.MapGet("/health", () => Results.Ok(new { status = "healthy" })).AllowAnonymo
 app.MapAuthEndpoints();
 app.MapGameEndpoints();
 app.MapHub<GameHub>("/hubs/game");
+
+// Applies pending EF Core migrations before serving traffic. IsRelational() guards this so it's a
+// no-op under the InMemory provider (WebApplicationFactory-based tests, which set up their schema
+// via EnsureCreated instead — Migrate() isn't supported there and would throw).
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<NightfallDbContext>();
+    if (db.Database.IsRelational())
+    {
+        await db.Database.MigrateAsync();
+    }
+}
+
+// `--migrate-only`: apply migrations then exit, without starting the server — lets an operator
+// run schema migrations as an explicit, separate step ahead of a coordinated rollout.
+if (args.Contains("--migrate-only"))
+{
+    return;
+}
 
 app.Run();
 

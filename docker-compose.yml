@@ -1,5 +1,85 @@
-# TODO: Phase 9 — compose services for Nightfall.Api, Nightfall.Bot, Postgres, Redis, and the frontend.
-# Placeholder only; not yet functional.
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-nightfall}
+      POSTGRES_USER: ${POSTGRES_USER:-nightfall}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nightfall} -d ${POSTGRES_DB:-nightfall}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
-version: "3.9"
-services: {}
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: src/Nightfall.Api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ConnectionStrings__Postgres: "Host=postgres;Database=${POSTGRES_DB:-nightfall};Username=${POSTGRES_USER:-nightfall};Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
+      ConnectionStrings__Redis: "redis:6379,abortConnect=false"
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:?JWT_SIGNING_KEY is required}
+      Telegram__BotToken: ${TELEGRAM_BOT_TOKEN:?TELEGRAM_BOT_TOKEN is required}
+      Agora__AppId: ${AGORA_APP_ID:?AGORA_APP_ID is required}
+      Agora__AppCertificate: ${AGORA_APP_CERTIFICATE:?AGORA_APP_CERTIFICATE is required}
+      Cors__AllowedOrigins__0: ${PUBLIC_FRONTEND_ORIGIN:-http://localhost:8080}
+    ports:
+      - "5299:8080"
+
+  bot:
+    build:
+      context: .
+      dockerfile: src/Nightfall.Bot/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_started
+    environment:
+      DOTNET_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ConnectionStrings__Postgres: "Host=postgres;Database=${POSTGRES_DB:-nightfall};Username=${POSTGRES_USER:-nightfall};Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
+      ConnectionStrings__Redis: "redis:6379,abortConnect=false"
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:?JWT_SIGNING_KEY is required}
+      Telegram__BotToken: ${TELEGRAM_BOT_TOKEN:?TELEGRAM_BOT_TOKEN is required}
+      Agora__AppId: ${AGORA_APP_ID:?AGORA_APP_ID is required}
+      Agora__AppCertificate: ${AGORA_APP_CERTIFICATE:?AGORA_APP_CERTIFICATE is required}
+      Bot__NightfallApiBaseUrl: "http://api:8080"
+      Bot__MiniAppBaseUrl: ${MINI_APP_BASE_URL:-}
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/nightfall-app/Dockerfile
+      args:
+        VITE_API_BASE_URL: ${PUBLIC_API_BASE_URL:-http://localhost:5299}
+        VITE_AGORA_APP_ID: ${AGORA_APP_ID:?AGORA_APP_ID is required}
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
+
+volumes:
+  postgres-data:

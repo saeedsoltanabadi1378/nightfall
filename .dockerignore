@@ -1,8 +1,23 @@
-# TODO: Phase 9 — tune per final Dockerfiles.
-
+# .NET build artifacts
 **/bin/
 **/obj/
+
+# Node / frontend
 **/node_modules/
 **/dist/
-.git/
+
+# Env / secrets
 .env
+.env.*
+!.env.example
+
+# VCS / editor / CI
+.git/
+.github/
+.vs/
+.vscode/
+.idea/
+
+# Docs (not needed inside images)
+docs/
+*.md
