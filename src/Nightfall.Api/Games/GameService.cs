@@ -10,12 +10,21 @@ public sealed class GameService
     private readonly IGameSessionStore _sessionStore;
     private readonly IGameHistoryRepository _historyRepository;
     private readonly IGameNotifier _notifier;
+    private readonly IChatGameIndex _chatGameIndex;
+    private readonly IGameRosterStore _rosterStore;
 
-    public GameService(IGameSessionStore sessionStore, IGameHistoryRepository historyRepository, IGameNotifier notifier)
+    public GameService(
+        IGameSessionStore sessionStore,
+        IGameHistoryRepository historyRepository,
+        IGameNotifier notifier,
+        IChatGameIndex chatGameIndex,
+        IGameRosterStore rosterStore)
     {
         _sessionStore = sessionStore;
         _historyRepository = historyRepository;
         _notifier = notifier;
+        _chatGameIndex = chatGameIndex;
+        _rosterStore = rosterStore;
     }
 
     public async Task<Guid> CreateGameAsync(long telegramChatId, long creatorTelegramUserId, string creatorUsername)
@@ -25,11 +34,17 @@ public sealed class GameService
         game.AddPlayer(new Player(creatorId, creatorUsername));
 
         await _sessionStore.SaveAsync(game);
+        await _chatGameIndex.SetActiveGameAsync(telegramChatId, game.GameId);
+        await _rosterStore.AddAsync(game.GameId, creatorTelegramUserId, creatorUsername);
         return game.GameId;
     }
 
     public async Task<GameState> LoadOrThrowAsync(Guid gameId) =>
         await _sessionStore.GetAsync(gameId) ?? throw new GameNotFoundException(gameId);
+
+    public async Task<Guid> GetActiveGameForChatOrThrowAsync(long telegramChatId) =>
+        await _chatGameIndex.GetActiveGameAsync(telegramChatId)
+            ?? throw GameNotFoundException.ForChat(telegramChatId);
 
     public async Task JoinGameAsync(Guid gameId, long telegramUserId, string username)
     {
@@ -40,6 +55,7 @@ public sealed class GameService
         {
             game.AddPlayer(new Player(playerId, username));
             await SaveAndNotifyAsync(game);
+            await _rosterStore.AddAsync(gameId, telegramUserId, username);
         }
     }
 
@@ -103,6 +119,11 @@ public sealed class GameService
         if (game.CurrentPhase == GamePhase.Ended)
         {
             await _historyRepository.SaveCompletedGameAsync(game);
+            if (game.TelegramChatId is { } chatId)
+            {
+                await _chatGameIndex.ClearActiveGameAsync(chatId);
+            }
+            await _rosterStore.RemoveAsync(game.GameId);
         }
 
         await _notifier.NotifyGameUpdatedAsync(game);

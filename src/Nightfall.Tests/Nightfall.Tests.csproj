@@ -25,7 +25,16 @@
   <ItemGroup>
     <ProjectReference Include="..\Nightfall.Domain\Nightfall.Domain.csproj" />
     <ProjectReference Include="..\Nightfall.Infrastructure\Nightfall.Infrastructure.csproj" />
-    <ProjectReference Include="..\Nightfall.Api\Nightfall.Api.csproj" />
+    <ProjectReference Include="..\Nightfall.Api\Nightfall.Api.csproj">
+      <!-- Nightfall.Api and Nightfall.Bot both generate a top-level-statement `Program` class in
+           the global namespace (Bot's is normally internal, but InternalsVisibleTo for
+           CommandDispatcher's tests makes it visible here too), so an unqualified `Program`
+           becomes ambiguous once both are referenced. Keep the default "global" alias so every
+           other file's plain `using Nightfall.Api...` keeps working, and add "ApiAssembly" so
+           NightfallApiFactory.cs alone can disambiguate via extern alias for WebApplicationFactory. -->
+      <Aliases>global,ApiAssembly</Aliases>
+    </ProjectReference>
+    <ProjectReference Include="..\Nightfall.Bot\Nightfall.Bot.csproj" />
   </ItemGroup>
 
 </Project>

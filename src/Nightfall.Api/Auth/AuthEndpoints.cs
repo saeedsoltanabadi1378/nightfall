@@ -1,3 +1,5 @@
+using Nightfall.Infrastructure.Auth;
+
 namespace Nightfall.Api.Auth;
 
 public static class AuthEndpoints

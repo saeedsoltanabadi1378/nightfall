@@ -7,21 +7,19 @@ using Nightfall.Api.Errors;
 using Nightfall.Api.Games;
 using Nightfall.Api.Hubs;
 using Nightfall.Infrastructure;
+using Nightfall.Infrastructure.Auth;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Registers JwtTokenService/JwtOptions among everything else — see AddNightfallInfrastructure's
+// own doc comment for why Jwt is bundled in there rather than registered separately here.
 builder.Services.AddNightfallInfrastructure(builder.Configuration);
 
 builder.Services.AddOptions<TelegramAuthOptions>()
     .Bind(builder.Configuration.GetSection(TelegramAuthOptions.SectionName))
     .Validate(o => !string.IsNullOrWhiteSpace(o.BotToken), $"Missing required configuration: {TelegramAuthOptions.SectionName}:BotToken")
     .ValidateOnStart();
-builder.Services.AddOptions<JwtOptions>()
-    .Bind(builder.Configuration.GetSection(JwtOptions.SectionName))
-    .Validate(o => !string.IsNullOrWhiteSpace(o.SigningKey), $"Missing required configuration: {JwtOptions.SectionName}:SigningKey")
-    .ValidateOnStart();
 builder.Services.AddSingleton<TelegramInitDataValidator>();
-builder.Services.AddSingleton<JwtTokenService>();
 
 builder.Services.AddScoped<GameService>();
 builder.Services.AddSingleton<IGameNotifier, SignalRGameNotifier>();

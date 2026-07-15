@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Options;
+using Nightfall.Infrastructure.Auth;
 
 namespace Nightfall.Api.Auth;
 
@@ -30,7 +31,7 @@ public sealed class TelegramInitDataValidator
         _options = options.Value;
     }
 
-    public bool TryValidate(string initData, out TelegramWebAppUser? user)
+    public bool TryValidate(string initData, out TelegramIdentity? user)
     {
         user = null;
         if (string.IsNullOrWhiteSpace(initData))
@@ -81,7 +82,7 @@ public sealed class TelegramInitDataValidator
 
         try
         {
-            user = JsonSerializer.Deserialize<TelegramWebAppUser>(userJson.ToString(), JsonOptions);
+            user = JsonSerializer.Deserialize<TelegramIdentity>(userJson.ToString(), JsonOptions);
         }
         catch (JsonException)
         {

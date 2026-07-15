@@ -4,7 +4,7 @@ using System.Text;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
-namespace Nightfall.Api.Auth;
+namespace Nightfall.Infrastructure.Auth;
 
 public sealed class JwtTokenService
 {
@@ -15,12 +15,12 @@ public sealed class JwtTokenService
         _options = options.Value;
     }
 
-    public string IssueToken(TelegramWebAppUser user)
+    public string IssueToken(TelegramIdentity identity)
     {
         var claims = new[]
         {
-            new Claim(NightfallClaimTypes.TelegramUserId, user.Id.ToString()),
-            new Claim(NightfallClaimTypes.TelegramUsername, user.Username ?? user.FirstName)
+            new Claim(NightfallClaimTypes.TelegramUserId, identity.Id.ToString()),
+            new Claim(NightfallClaimTypes.TelegramUsername, identity.Username ?? identity.FirstName)
         };
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SigningKey));

@@ -31,6 +31,12 @@ public static class GameEndpoints
             return Results.Ok(GameView.For(game, viewerId));
         }).WithName("GetGame");
 
+        group.MapGet("/by-chat/{telegramChatId:long}", async (long telegramChatId, GameService games) =>
+        {
+            var gameId = await games.GetActiveGameForChatOrThrowAsync(telegramChatId);
+            return Results.Ok(new CreateGameResponse(gameId));
+        }).WithName("GetActiveGameForChat");
+
         group.MapPost("/{gameId:guid}/start", async (Guid gameId, GameService games) =>
         {
             await games.StartGameAsync(gameId);

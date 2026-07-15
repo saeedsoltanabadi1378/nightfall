@@ -1,4 +1,4 @@
-namespace Nightfall.Api.Auth;
+namespace Nightfall.Infrastructure.Auth;
 
 public sealed class JwtOptions
 {

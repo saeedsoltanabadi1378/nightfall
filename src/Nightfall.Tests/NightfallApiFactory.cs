@@ -1,3 +1,5 @@
+extern alias ApiAssembly;
+
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -6,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Nightfall.Infrastructure.History;
 using Nightfall.Infrastructure.Sessions;
+using ApiProgram = ApiAssembly::Program;
 
 namespace Nightfall.Tests;
 
@@ -21,7 +24,7 @@ namespace Nightfall.Tests;
 /// behavior against a real relational provider is separately covered by
 /// GameHistoryRepositoryTests, which builds its own Sqlite DbContext from scratch.
 /// </summary>
-public sealed class NightfallApiFactory : WebApplicationFactory<Program>
+public sealed class NightfallApiFactory : WebApplicationFactory<ApiProgram>
 {
     public const string TestBotToken = "123456789:AAFakeTestTokenForGoldenFixtureOnly1234";
     public const string TestJwtSigningKey = "test-signing-key-at-least-32-characters-long-for-hs256!!";

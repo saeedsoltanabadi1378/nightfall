@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Nightfall.Infrastructure.Auth;
 
 namespace Nightfall.Api.Auth;
 

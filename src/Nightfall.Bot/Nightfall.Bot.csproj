@@ -8,7 +8,18 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.10" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.8" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.10" />
     <PackageReference Include="Telegram.Bot" Version="22.10.1.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Nightfall.Domain\Nightfall.Domain.csproj" />
+    <ProjectReference Include="..\Nightfall.Infrastructure\Nightfall.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Nightfall.Tests" />
   </ItemGroup>
 </Project>

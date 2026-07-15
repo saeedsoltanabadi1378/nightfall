@@ -139,6 +139,56 @@ public class GameFlowIntegrationTests : IClassFixture<NightfallApiFactory>, IAsy
     }
 
     [Fact]
+    public async Task GetActiveGameForChat_ResolvesTheGameJustCreated_AndIsClearedWhenTheGameEnds()
+    {
+        var players = await CreateAuthenticatedPlayersAsync(5, seed: 5);
+        var creator = players[0];
+        const long chatId = 42004;
+
+        var created = await (await creator.Client.PostAsJsonAsync("/api/games", new CreateGameRequest(chatId)))
+            .Content.ReadFromJsonAsync<CreateGameResponse>();
+
+        var byChatResponse = await creator.Client.GetAsync($"/api/games/by-chat/{chatId}");
+        byChatResponse.EnsureSuccessStatusCode();
+        var byChat = await byChatResponse.Content.ReadFromJsonAsync<CreateGameResponse>();
+        Assert.Equal(created!.GameId, byChat!.GameId);
+
+        // 5 players, mafiaCount == 1 -> voting out the sole Godfather ends the game immediately.
+        foreach (var player in players.Skip(1))
+        {
+            (await player.Client.PostAsync($"/api/games/{created.GameId}/players", null)).EnsureSuccessStatusCode();
+        }
+        (await creator.Client.PostAsync($"/api/games/{created.GameId}/start", null)).EnsureSuccessStatusCode();
+        (await creator.Client.PostAsync($"/api/games/{created.GameId}/resolve-night", null)).EnsureSuccessStatusCode();
+        (await creator.Client.PostAsync($"/api/games/{created.GameId}/start-voting", null)).EnsureSuccessStatusCode();
+
+        // Find whichever authenticated player IS the Godfather by checking each one's own view.
+        TestPlayer? godfather = null;
+        Guid godfatherPlayerId = default;
+        foreach (var player in players)
+        {
+            var v = await player.Client.GetFromJsonAsync<GameView>($"/api/games/{created.GameId}");
+            if (v!.YourRole == Role.Godfather)
+            {
+                godfather = player;
+                godfatherPlayerId = v.YourPlayerId;
+            }
+        }
+        Assert.NotNull(godfather);
+
+        foreach (var voter in players.Where(p => p != godfather))
+        {
+            (await voter.Client.PostAsJsonAsync($"/api/games/{created.GameId}/votes", new SubmitVoteRequest(godfatherPlayerId)))
+                .EnsureSuccessStatusCode();
+        }
+        var resolveResponse = await creator.Client.PostAsync($"/api/games/{created.GameId}/resolve-voting", null);
+        resolveResponse.EnsureSuccessStatusCode();
+
+        var afterEndResponse = await creator.Client.GetAsync($"/api/games/by-chat/{chatId}");
+        Assert.Equal(HttpStatusCode.NotFound, afterEndResponse.StatusCode);
+    }
+
+    [Fact]
     public async Task SubmitNightAction_OutsideNightPhase_Returns400()
     {
         var players = await CreateAuthenticatedPlayersAsync(5, seed: 3);
