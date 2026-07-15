@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@microsoft/signalr": "^10.0.0",
+    "agora-rtc-sdk-ng": "^4.24.6",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },

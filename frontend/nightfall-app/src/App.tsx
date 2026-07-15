@@ -1,122 +1,66 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { GameProvider } from "./context/GameProvider";
+import { useGame } from "./context/useGame";
+import { LobbyScreen } from "./screens/LobbyScreen";
+import { NightScreen } from "./screens/NightScreen";
+import { DayScreen } from "./screens/DayScreen";
+import { VotingScreen } from "./screens/VotingScreen";
+import { ResultsScreen } from "./screens/ResultsScreen";
+import { EndedScreen } from "./screens/EndedScreen";
+import { VoiceControls } from "./components/VoiceControls";
+import "./App.css";
 
-function App() {
-  const [count, setCount] = useState(0)
+function GameRouter() {
+  const { status, error, view } = useGame();
+
+  if (status === "authenticating" || status === "loading-game") {
+    return (
+      <div className="screen screen--centered">
+        <p className="screen__loading">🌙 Loading Nightfall…</p>
+      </div>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <div className="screen screen--centered">
+        <div className="banner banner--error">{error ?? "Something went wrong."}</div>
+      </div>
+    );
+  }
+
+  if (status === "no-game") {
+    return (
+      <div className="screen screen--centered">
+        <h1>🌙 Nightfall</h1>
+        <p className="screen__subtitle">
+          Open Nightfall from a game's message in your Telegram group — use <code>/newgame</code> or{" "}
+          <code>/startgame</code> in the group chat, then tap the button the bot sends.
+        </p>
+      </div>
+    );
+  }
+
+  if (!view) return null;
 
   return (
     <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
+      {(view.phase === "Night" || view.phase === "NightZero" || view.phase === "Day" || view.phase === "Voting" || view.phase === "Results") && (
+        <VoiceControls />
+      )}
+      {(view.phase === "Lobby" || view.phase === "RoleAssignment") && <LobbyScreen />}
+      {(view.phase === "NightZero" || view.phase === "Night") && <NightScreen />}
+      {view.phase === "Day" && <DayScreen />}
+      {view.phase === "Voting" && <VotingScreen />}
+      {view.phase === "Results" && <ResultsScreen />}
+      {view.phase === "Ended" && <EndedScreen />}
     </>
-  )
+  );
 }
 
-export default App
+export default function App() {
+  return (
+    <GameProvider>
+      <GameRouter />
+    </GameProvider>
+  );
+}
