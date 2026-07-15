@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { useGame } from "../context/useGame";
 import { VoiceSession } from "../lib/voiceSession";
 import { ApiError } from "../api/client";
+import { useLanguage } from "../i18n/LanguageContext";
 
 type VoiceChannel = "main" | "mafia";
 
 export function VoiceControls() {
   const { view, apiClient } = useGame();
+  const { t } = useLanguage();
   const sessionRef = useRef<VoiceSession>(new VoiceSession());
   const [connected, setConnected] = useState<VoiceChannel | null>(null);
   const [publishing, setPublishing] = useState(false);
@@ -43,7 +45,7 @@ export function VoiceControls() {
       setPublishing(canPublish);
       setMuted(false);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not join voice chat. Check microphone permissions.");
+      setError(err instanceof ApiError ? err.message : t("voiceError"));
     } finally {
       setBusy(false);
     }
@@ -73,11 +75,11 @@ export function VoiceControls() {
       {!connected && (
         <div className="voice-controls__buttons">
           <button className="button button--voice" disabled={busy} onClick={() => void join("main")}>
-            {isNight ? "🔇 Listen to room voice" : "🎙️ Join room voice"}
+            {isNight ? t("listenRoom") : t("joinRoom")}
           </button>
           {canJoinMafiaChannel && (
             <button className="button button--voice" disabled={busy} onClick={() => void join("mafia")}>
-              🔪 Join Mafia voice
+              {t("joinMafia")}
             </button>
           )}
         </div>
@@ -86,15 +88,15 @@ export function VoiceControls() {
       {connected && (
         <div className="voice-controls__active">
           <span className="voice-controls__status">
-            🔊 In {connected === "mafia" ? "Mafia" : "room"} voice{publishing ? "" : " (listening only)"}
+            {t(connected === "mafia" ? "inMafiaVoice" : "inRoomVoice")}{publishing ? "" : t("listeningOnly")}
           </span>
           {publishing && (
             <button className="button button--voice" disabled={busy} onClick={() => void toggleMute()}>
-              {muted ? "🔇 Unmute" : "🎤 Mute"}
+              {muted ? t("unmute") : t("mute")}
             </button>
           )}
           <button className="button button--voice" disabled={busy} onClick={() => void leave()}>
-            Leave voice
+            {t("leaveVoice")}
           </button>
         </div>
       )}

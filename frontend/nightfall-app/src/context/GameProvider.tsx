@@ -5,8 +5,10 @@ import { connectToGameHub } from "../api/signalr";
 import type { GameView } from "../api/types";
 import { telegram } from "../lib/telegram";
 import { GameContext, type GameContextValue, type GameStatus } from "./gameContext";
+import { useLanguage } from "../i18n/LanguageContext";
 
 export function GameProvider({ children }: { children: ReactNode }) {
+  const { t } = useLanguage();
   const apiClient = useMemo(() => new NightfallApiClient(import.meta.env.VITE_API_BASE_URL), []);
 
   const [status, setStatus] = useState<GameStatus>("authenticating");
@@ -37,7 +39,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     async function authenticate() {
       if (!telegram.initData) {
         setStatus("error");
-        setError("Nightfall must be opened from Telegram.");
+        setError(t("noGame"));
         return;
       }
       try {
@@ -48,7 +50,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         if (cancelled) return;
         setStatus("error");
-        setError(err instanceof ApiError ? err.message : "Failed to authenticate with Nightfall.");
+        setError(err instanceof ApiError ? err.message : t("genericError"));
       }
     }
 
@@ -83,7 +85,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         if (cancelled) return;
         setStatus("error");
-        setError(err instanceof ApiError ? err.message : "Failed to load the game.");
+        setError(err instanceof ApiError ? err.message : t("genericError"));
       }
     }
 
@@ -128,11 +130,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
       await action();
       await refresh();
     } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : "That action failed.");
+      setActionError(err instanceof ApiError ? err.message : t("genericError"));
     } finally {
       setBusy(false);
     }
-  }, [refresh]);
+  }, [refresh, t]);
 
   const value: GameContextValue = {
     apiClient,

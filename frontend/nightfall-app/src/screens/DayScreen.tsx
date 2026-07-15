@@ -1,9 +1,11 @@
 import { useGame } from "../context/useGame";
 import { PlayerList } from "../components/PlayerList";
 import { RoleBanner } from "../components/RoleBanner";
+import { useLanguage } from "../i18n/LanguageContext";
 
 export function DayScreen() {
   const { view, busy, actionError, startVoting } = useGame();
+  const { t } = useLanguage();
   if (!view) return null;
 
   const elimination = view.lastNightElimination;
@@ -13,32 +15,32 @@ export function DayScreen() {
 
   return (
     <div className="screen">
-      <h1>☀️ Day {view.nightNumber}</h1>
+      <h1>☀️ {t("day", { number: view.nightNumber })}</h1>
       <RoleBanner role={view.yourRole} alive={view.youAreAlive} />
 
       {elimination && (
         <div className="banner banner--info">
           {eliminatedPlayer
-            ? `${eliminatedPlayer.telegramUsername} was found dead this morning.${
-                eliminatedPlayer.revealedRole ? ` They were a ${eliminatedPlayer.revealedRole}.` : ""
+            ? `${t("foundDead", { name: eliminatedPlayer.telegramUsername })}${
+                eliminatedPlayer.revealedRole ? t("theyWere", { role: t(`role${eliminatedPlayer.revealedRole}` as "roleVillager") }) : ""
               }`
             : elimination.wasSaved
-              ? "The Doctor saved the target! Nobody died last night."
-              : "Nobody died last night."}
+              ? t("doctorSaved")
+              : t("nobodyDied")}
         </div>
       )}
 
-      <p className="screen__subtitle">Discuss, then move to voting when ready.</p>
+      <p className="screen__subtitle">{t("discuss")}</p>
       <PlayerList players={view.players} yourPlayerId={view.yourPlayerId} />
 
       {actionError && <div className="banner banner--error">{actionError}</div>}
 
       {view.youAreController ? (
         <button className="button button--primary" disabled={busy} onClick={() => void startVoting()}>
-          Start voting
+          {t("startVoting")}
         </button>
       ) : (
-        <p className="screen__hint">Waiting for the game creator to start voting.</p>
+        <p className="screen__hint">{t("waitingVoting")}</p>
       )}
     </div>
   );

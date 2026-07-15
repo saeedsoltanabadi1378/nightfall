@@ -7,15 +7,18 @@ import { VotingScreen } from "./screens/VotingScreen";
 import { ResultsScreen } from "./screens/ResultsScreen";
 import { EndedScreen } from "./screens/EndedScreen";
 import { VoiceControls } from "./components/VoiceControls";
+import { LanguageToggle } from "./components/LanguageToggle";
+import { LanguageProvider, useLanguage } from "./i18n/LanguageContext";
 import "./App.css";
 
 function GameRouter() {
   const { status, error, view } = useGame();
+  const { t } = useLanguage();
 
   if (status === "authenticating" || status === "loading-game") {
     return (
       <div className="screen screen--centered">
-        <p className="screen__loading">🌙 Loading Nightfall…</p>
+        <p className="screen__loading">{t("loading")}</p>
       </div>
     );
   }
@@ -23,7 +26,7 @@ function GameRouter() {
   if (status === "error") {
     return (
       <div className="screen screen--centered">
-        <div className="banner banner--error">{error ?? "Something went wrong."}</div>
+        <div className="banner banner--error">{error ?? t("genericError")}</div>
       </div>
     );
   }
@@ -32,10 +35,7 @@ function GameRouter() {
     return (
       <div className="screen screen--centered">
         <h1>🌙 Nightfall</h1>
-        <p className="screen__subtitle">
-          Open Nightfall from a game's message in your Telegram group — use <code>/newgame</code> or{" "}
-          <code>/startgame</code> in the group chat, then tap the button the bot sends.
-        </p>
+        <p className="screen__subtitle">{t("noGame")}</p>
       </div>
     );
   }
@@ -59,8 +59,11 @@ function GameRouter() {
 
 export default function App() {
   return (
-    <GameProvider>
-      <GameRouter />
-    </GameProvider>
+    <LanguageProvider>
+      <LanguageToggle />
+      <GameProvider>
+        <GameRouter />
+      </GameProvider>
+    </LanguageProvider>
   );
 }

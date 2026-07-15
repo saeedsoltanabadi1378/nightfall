@@ -1,5 +1,6 @@
 import type { PlayerView } from "../api/types";
-import { roleInfo } from "../lib/gameText";
+import { roleEmoji } from "../lib/gameText";
+import { useLanguage } from "../i18n/LanguageContext";
 
 interface PlayerListProps {
   players: PlayerView[];
@@ -11,6 +12,8 @@ interface PlayerListProps {
 }
 
 export function PlayerList({ players, yourPlayerId, selectable, selectedPlayerId, onSelect, disabledPlayerIds }: PlayerListProps) {
+  const { t } = useLanguage();
+  const roleLabel = (role: NonNullable<PlayerView["revealedRole"]>) => t(`role${role}` as "roleVillager");
   return (
     <ul className="player-list">
       {players.map((player) => {
@@ -33,14 +36,14 @@ export function PlayerList({ players, yourPlayerId, selectable, selectedPlayerId
           >
             <span className="player-list__name">
               {player.telegramUsername}
-              {isYou && " (you)"}
+              {isYou && ` (${t("you")})`}
             </span>
             {player.revealedRole && (
               <span className="player-list__role">
-                {roleInfo[player.revealedRole].emoji} {roleInfo[player.revealedRole].label}
+                {roleEmoji[player.revealedRole]} {roleLabel(player.revealedRole)}
               </span>
             )}
-            {!player.isAlive && <span className="player-list__dead-tag">dead</span>}
+            {!player.isAlive && <span className="player-list__dead-tag">{t("dead")}</span>}
           </li>
         );
       })}

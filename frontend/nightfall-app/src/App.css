@@ -6,6 +6,23 @@
   flex: 1;
 }
 
+.language-toggle {
+  align-self: flex-end;
+  margin: 10px 16px 0;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-h);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
+
+[dir="rtl"] .language-toggle {
+  align-self: flex-start;
+}
+
 .screen--centered {
   align-items: center;
   justify-content: center;
