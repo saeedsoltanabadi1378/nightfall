@@ -83,12 +83,15 @@ public class GameStateLobbyAndRoleAssignmentTests
     }
 
     [Theory]
+    [InlineData(3, 1)]
     [InlineData(5, 1)]
-    [InlineData(6, 1)]
+    [InlineData(6, 2)]
     [InlineData(7, 2)]
-    [InlineData(9, 2)]
+    [InlineData(8, 2)]
+    [InlineData(9, 3)]
     [InlineData(10, 3)]
-    [InlineData(12, 3)]
+    [InlineData(11, 3)]
+    [InlineData(12, 4)]
     public void AssignRoles_ProducesExpectedRoleDistribution(int playerCount, int expectedMafiaCount)
     {
         var (_, players) = TestGameFactory.CreateAssignedGame(playerCount);
@@ -96,9 +99,10 @@ public class GameStateLobbyAndRoleAssignmentTests
         Assert.All(players, p => Assert.NotNull(p.Role));
         Assert.Equal(1, players.Count(p => p.Role == Role.Godfather));
         Assert.Equal(expectedMafiaCount - 1, players.Count(p => p.Role == Role.Mafia));
-        Assert.Equal(1, players.Count(p => p.Role == Role.Detective));
-        Assert.Equal(1, players.Count(p => p.Role == Role.Doctor));
-        Assert.Equal(playerCount - expectedMafiaCount - 2, players.Count(p => p.Role == Role.Villager));
+        int expectedTownActors = playerCount == 3 ? 0 : 1;
+        Assert.Equal(expectedTownActors, players.Count(p => p.Role == Role.Detective));
+        Assert.Equal(expectedTownActors, players.Count(p => p.Role == Role.Doctor));
+        Assert.Equal(playerCount - expectedMafiaCount - (expectedTownActors * 2), players.Count(p => p.Role == Role.Villager));
 
         var mafiaTeam = players.Where(p => p.Role is Role.Mafia or Role.Godfather).ToList();
         Assert.Equal(expectedMafiaCount, mafiaTeam.Count);

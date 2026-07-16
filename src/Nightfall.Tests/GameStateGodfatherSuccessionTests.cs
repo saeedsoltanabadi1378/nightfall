@@ -7,10 +7,10 @@ public class GameStateGodfatherSuccessionTests
     [Fact]
     public void PromoteGodfather_PromotesLowestRankedAliveMafiaMember()
     {
-        // 12 players -> mafiaCount == 3: rank 1 (Godfather), rank 2 and rank 3 (Mafia).
+        // 12 players -> mafiaCount == 4: rank 1 (Godfather), then ranks 2 through 4 (Mafia).
         var (game, players) = TestGameFactory.CreateAssignedGame(12);
         var godfather = players.Godfather();
-        var mafia = players.Mafia(); // ordered by rank: [rank 2, rank 3]
+        var mafia = players.Mafia(); // ordered by rank: [rank 2, rank 3, rank 4]
 
         game.ResolveNight();
         game.StartVoting();
@@ -34,7 +34,7 @@ public class GameStateGodfatherSuccessionTests
     {
         var (game, players) = TestGameFactory.CreateAssignedGame(12);
         var godfather = players.Godfather();
-        var mafia = players.Mafia(); // [rank 2, rank 3]
+        var mafia = players.Mafia(); // [rank 2, rank 3, rank 4]
 
         game.ResolveNight(); // NightZero, no actions.
         game.StartVoting();
@@ -49,7 +49,7 @@ public class GameStateGodfatherSuccessionTests
         Assert.Equal(Role.Godfather, mafia[0].Role);
         Assert.Equal(Role.Mafia, mafia[1].Role); // rank 3 stays a plain Mafia member.
         Assert.False(godfather.IsAlive);
-        Assert.NotEqual(GamePhase.Ended, game.CurrentPhase); // mafia team still alive (2 of 3 remain).
+        Assert.NotEqual(GamePhase.Ended, game.CurrentPhase); // mafia team still has three living members.
     }
 
     [Fact]
@@ -57,7 +57,7 @@ public class GameStateGodfatherSuccessionTests
     {
         var (game, players) = TestGameFactory.CreateAssignedGame(12);
         var originalGodfather = players.Godfather();
-        var mafia = players.Mafia(); // [rank 2, rank 3]
+        var mafia = players.Mafia(); // [rank 2, rank 3, rank 4]
         var rank2 = mafia[0];
         var rank3 = mafia[1];
 

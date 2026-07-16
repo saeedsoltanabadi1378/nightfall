@@ -43,6 +43,7 @@ export interface GameView {
   gameId: string;
   phase: GamePhase;
   nightNumber: number;
+  minPlayers: number;
   players: PlayerView[];
   yourPlayerId: string;
   yourRole: Role | null;

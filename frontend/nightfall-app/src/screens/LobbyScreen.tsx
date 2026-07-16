@@ -8,7 +8,7 @@ export function LobbyScreen() {
   if (!view) return null;
 
   const youHaveJoined = view.players.some((p) => p.playerId === view.yourPlayerId);
-  const canStart = view.players.length >= 5;
+  const canStart = view.players.length >= view.minPlayers;
 
   return (
     <div className="screen">
@@ -27,7 +27,7 @@ export function LobbyScreen() {
 
       {youHaveJoined && view.youAreController && (
         <button className="button button--primary" disabled={busy || !canStart} onClick={() => void startGame()}>
-          {canStart ? t("startGame") : t("needPlayers", { count: view.players.length })}
+          {canStart ? t("startGame") : t("needPlayers", { count: view.players.length, min: view.minPlayers })}
         </button>
       )}
 

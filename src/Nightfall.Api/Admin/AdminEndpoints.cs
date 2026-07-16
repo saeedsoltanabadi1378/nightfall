@@ -75,7 +75,7 @@ public static class AdminEndpoints
     private static async Task<IResult> UpdateSettingsAsync(SettingsRequest request, HttpContext http, NightfallDbContext db, IHostEnvironment env)
     {
         if (!ValidCsrf(http)) return Results.BadRequest(new { detail = "Invalid CSRF token." });
-        if (request.MinPlayers < 2 || request.MaxPlayers > 50 || request.MinPlayers > request.MaxPlayers) return Results.BadRequest(new { detail = "Player limits must be between 2 and 50 and minimum cannot exceed maximum." });
+        if (request.MinPlayers < 3 || request.MaxPlayers > 50 || request.MinPlayers > request.MaxPlayers) return Results.BadRequest(new { detail = "Player limits must be between 3 and 50 and minimum cannot exceed maximum." });
         if (request.MaintenanceMessage.Length > 4096 || request.HelpMessage.Length > 4096 || request.WelcomeMessage.Length > 4096) return Results.BadRequest(new { detail = "Messages cannot exceed 4096 characters." });
         if (request.EnabledCommands.Except(BotSettingsDefaults.Commands).Any()) return Results.BadRequest(new { detail = "Unknown command." });
         if (!string.IsNullOrWhiteSpace(request.MiniAppBaseUrl) && (!Uri.TryCreate(request.MiniAppBaseUrl, UriKind.Absolute, out var uri) || (!env.IsDevelopment() && uri.Scheme != "https"))) return Results.BadRequest(new { detail = "Mini-app URL must be an absolute HTTPS URL." });

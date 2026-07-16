@@ -6,7 +6,7 @@ public sealed class BotSettingsRecord
 {
     public int Id { get; set; } = 1;
     public int Version { get; set; } = 1;
-    public int MinPlayers { get; set; } = 5;
+    public int MinPlayers { get; set; } = 3;
     public int MaxPlayers { get; set; } = 12;
     public bool MaintenanceMode { get; set; }
     public string MaintenanceMessage { get; set; } = "Nightfall is temporarily unavailable for maintenance.";

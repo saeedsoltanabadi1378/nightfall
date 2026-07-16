@@ -168,6 +168,17 @@ public sealed class GameState
             player.SetGodfatherRank(rank);
         }
 
+        if (ordered.Count == 3)
+        {
+            for (; i < ordered.Count; i++)
+            {
+                ordered[i].AssignRole(Role.Villager);
+            }
+
+            CurrentPhase = GamePhase.NightZero;
+            return;
+        }
+
         ordered[i++].AssignRole(Role.Detective);
         ordered[i++].AssignRole(Role.Doctor);
         for (; i < ordered.Count; i++)
@@ -178,12 +189,7 @@ public sealed class GameState
         CurrentPhase = GamePhase.NightZero;
     }
 
-    private static int DetermineMafiaCount(int playerCount) => playerCount switch
-    {
-        <= 6 => 1,
-        <= 9 => 2,
-        _ => 3
-    };
+    private static int DetermineMafiaCount(int playerCount) => playerCount / 3;
 
     public void SubmitNightAction(Guid playerId, Guid targetId, NightActionType actionType)
     {
