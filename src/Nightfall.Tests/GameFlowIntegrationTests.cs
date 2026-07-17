@@ -267,6 +267,16 @@ public class GameFlowIntegrationTests : IClassFixture<NightfallApiFactory>, IAsy
         Assert.False(string.IsNullOrWhiteSpace(mainToken!.Token));
         Assert.Equal("Subscriber", mainToken.Role);
 
+        // Once daytime begins, every living player can speak in the main room, not only the
+        // player whose discussion turn is active.
+        (await creator.Client.PostAsync($"/api/games/{created.GameId}/resolve-night", null)).EnsureSuccessStatusCode();
+        foreach (var player in players)
+        {
+            var dayToken = await player.Client.GetFromJsonAsync<VoiceTokenResponse>(
+                $"/api/games/{created.GameId}/voice-token?channel=main");
+            Assert.Equal("Publisher", dayToken!.Role);
+        }
+
         if (view!.YourRole is not (Role.Mafia or Role.Godfather))
         {
             var mafiaTokenResponse = await creator.Client.GetAsync($"/api/games/{created.GameId}/voice-token?channel=mafia");

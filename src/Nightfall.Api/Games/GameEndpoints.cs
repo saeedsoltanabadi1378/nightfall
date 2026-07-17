@@ -122,9 +122,7 @@ public static class GameEndpoints
             {
                 case "main":
                     channelName = $"nightfall-{gameId}";
-                    bool isNight = game.CurrentPhase is GamePhase.NightZero or GamePhase.Night;
-                    bool isActiveDayParticipant = game.CurrentPhase == GamePhase.Day && game.Discussion?.ActivePlayerId == player.Id;
-                    role = player.IsAlive && (isActiveDayParticipant || game.CurrentPhase is GamePhase.Voting or GamePhase.Results)
+                    role = player.IsAlive && (game.CurrentPhase is GamePhase.Day or GamePhase.Voting or GamePhase.Results)
                         ? AgoraRtcRole.Publisher : AgoraRtcRole.Subscriber;
                     break;
                 case "mafia":
